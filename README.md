@@ -33,6 +33,8 @@ To understand these examples, note that:
 - `map` is an API function of Base, which happens to be present in the LinearAlgebra namespace
 - `_svd!` is a private function of LinearAlgebra
 
+The `check_*` functions can be all invoked together with the helper function `test_explicit_imports`. These needs the Test stdlib to be loaded, as the functionality works with a package extension.
+
 ## Goals
 
 - Figure out what implicit imports a Julia module is relying on, in order to make them explicit.

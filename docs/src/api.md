@@ -25,7 +25,13 @@ improper_qualified_accesses
 
 ExplicitImports.jl provides several functions (all starting with `check_`) which introspect a module for various kinds of potential issues, and throws errors if these issues are encountered. These "check" functions are designed to be narrowly scoped to detect one specific type of issue, and stable so that they can be used in testing environments (with the aim that non-breaking releases of ExplicitExports.jl will generally not cause new test failures).
 
-The first such check is [`check_no_implicit_imports`](@ref) which aims to ensure there are no implicit exports used in the package.
+Additionally, one can use [`test_explicit_imports`](@ref) to run _all_ of the checks from one simple interface. This functionality is modeled after [Aqua](https://github.com/JuliaTesting/Aqua.jl)'s [`Aqua.test_all`](https://juliatesting.github.io/Aqua.jl/stable/test_all/#Aqua.test_all).
+
+```@docs
+test_explicit_imports
+```
+
+Now let us go over each check in more detail. The first such check is [`check_no_implicit_imports`](@ref) which aims to ensure there are no implicit exports used in the package.
 
 ```@docs
 check_no_implicit_imports

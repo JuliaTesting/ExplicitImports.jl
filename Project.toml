@@ -1,7 +1,7 @@
 name = "ExplicitImports"
 uuid = "7d51a73a-1435-4ff3-83d9-f097790105c7"
-version = "1.11.3"
 authors = ["Eric P. Hanson"]
+version = "1.11.3"
 
 [deps]
 AbstractTrees = "1520ce14-60c1-5f80-bbc7-55ef81b5835c"
@@ -11,6 +11,13 @@ Markdown = "d6f4376e-aef5-505a-96c1-9c027394607a"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[weakdeps]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[extensions]
+TestExt = "Test"
 
 [compat]
 AbstractTrees = "0.4.5"

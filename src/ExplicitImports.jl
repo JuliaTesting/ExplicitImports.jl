@@ -27,6 +27,9 @@ export ImplicitImportsException, UnanalyzableModuleException,
        NonPublicQualifiedAccessException, SelfQualifiedAccessException
 export StaleImportsException, check_no_stale_explicit_imports
 
+# needs Test extension to be functional
+export test_explicit_imports
+
 # deprecated
 export print_stale_explicit_imports, stale_explicit_imports,
        stale_explicit_imports_nonrecursive,
@@ -396,6 +399,11 @@ function inspect_session(io::IO; skip=(Base, Core), inner=print_explicit_imports
 end
 
 include("precompile.jl")
+
+# pre-1.9 compat
+if !isdefined(Base, :get_extension)
+    include("../ext/TestExt.jl")
+end
 
 @setup_workload begin
     @compile_workload begin
