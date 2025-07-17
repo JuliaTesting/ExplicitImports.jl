@@ -9,10 +9,10 @@ if isdefined(Base, Symbol("@main")) && VERSION >= v"1.12.0-DEV.102"
         @test contains(help, "Path to the root directory")
         run1 = replace(readchomp(`$cmd --project=$(dir) -m ExplicitImports $dir`),
                        r"\s+" => " ")
-        @test contains(run1, "These could be explicitly imported as follows")
+        @test contains(run1, "is not relying on any implicit imports.")
         run2 = replace(readchomp(`$cmd --project=$(dir) -m ExplicitImports $dir/Project.toml`),
                        r"\s+" => " ")
-        @test contains(run2, "These could be explicitly imported as follows")
+        @test contains(run2, "is not relying on any implicit imports.")
         io = IOBuffer()
         err_run = success(pipeline(`$cmd --project=$(dir) -m ExplicitImports $dir/blah.toml`;
                                    stderr=io))
