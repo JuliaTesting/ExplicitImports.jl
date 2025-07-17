@@ -331,7 +331,7 @@ ExplicitImports.ignore_submodules(::ExplicitImports.ModuleDispatcher{ExplicitImp
 
 Other packages can add methods to  `ignore_submodules` in the same way (presumably via a package extension).
 """
-ignore_submodules(::ModuleDispatcher{T}) where {T}
+ignore_submodules(::ModuleDispatcher{T}) where {T} = ()
 
 ignore_submodules(::ModuleDispatcher{ExplicitImports}) = (JuliaSyntax,)
 
