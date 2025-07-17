@@ -2,8 +2,8 @@ module ExplicitImports
 
 #! explicit-imports: off
 # We vendor some dependencies to avoid compatibility problems. We tell ExplicitImports to ignore
-# this inclusion since otherwise it will complain about dynamic includes and we don't really
-# want it to recurse into vendored dependencies anyway.
+# these as we don't want it to recurse into vendored dependencies.
+# We also add `Vendored` to `ignore_submodules` elsewhere.
 module Vendored
 include(joinpath("..", "vendor", "JuliaSyntax", "src", "JuliaSyntax.jl"))
 include(joinpath("..", "vendor", "AbstractTrees", "src", "AbstractTrees.jl"))
