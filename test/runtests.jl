@@ -18,6 +18,10 @@ using ExplicitImports: is_struct_type_param, is_struct_field_name, is_for_arg,
                        is_generator_arg, analyze_qualified_names
 using TestPkg, Markdown
 
+if pwd() !== joinpath(pkgdir(ExplicitImports), "test")
+    @warn """Tests must be run from test directory, call `cd(joinpath(pkgdir(ExplicitImports), "test"))` before running to avoid spurious errors"""
+end
+
 function exception_string(f)
     str = try
         f()
@@ -130,6 +134,7 @@ include("module_alias.jl")
         @test check_no_stale_explicit_imports(TestMod15, "test_mods.jl") === nothing
         @test isempty(improper_explicit_imports_nonrecursive(TestMod15, "test_mods.jl"))
         @test isempty(improper_explicit_imports(TestMod15, "test_mods.jl")[1][2])
+        test_explicit_imports(TestMod15, "test_mods.jl"; no_implicit_imports=false)
     end
 
     if VERSION >= v"1.7-"

@@ -12,6 +12,17 @@ function askwargs(flag::Bool)
     return NamedTuple()
 end
 
+macro test_nothing(f, args, kw)
+    quoted_expr = quote
+        $(esc(f))((esc(args))...; (esc(kw))...) === nothing
+    end
+    expr = quote
+        $(esc(f))($(esc(args))...; $(esc(kw))...) === nothing
+    end
+
+    return Test.eval_test(expr, quoted_expr, __source__)
+end
+
 # TODO: kwargs named test or check?
 # NOTE: docstring lives in the main package under `test_explicit_imports`
 function ExplicitImports._test_explicit_imports(package::Module, file=pathof(mod);
@@ -26,45 +37,43 @@ function ExplicitImports._test_explicit_imports(package::Module, file=pathof(mod
 
     @testset "ExplicitImports" begin
         if no_implicit_imports !== false
-            @test check_no_implicit_imports(package, file;
-                                            askwargs(no_implicit_imports)...) ===
-                  nothing
+            @test_nothing(check_no_implicit_imports, (package, file), askwargs(no_implicit_imports))
         end
 
         if no_stale_explicit_imports !== false
-            @test check_no_stale_explicit_imports(package, file;
-                                                  askwargs(no_stale_explicit_imports)...) ===
-                  nothing
+            check_no_stale_explicit_imports(package, file;
+                                            askwargs(no_stale_explicit_imports)...) ===
+            nothing
         end
 
         if all_explicit_imports_via_owners !== false
-            @test check_all_explicit_imports_via_owners(package, file;
-                                                        askwargs(all_explicit_imports_via_owners)...) ===
-                  nothing
+            check_all_explicit_imports_via_owners(package, file;
+                                                  askwargs(all_explicit_imports_via_owners)...) ===
+            nothing
         end
 
         if all_explicit_imports_are_public !== false
-            @test check_all_explicit_imports_are_public(package, file;
-                                                        askwargs(all_explicit_imports_are_public)...) ===
-                  nothing
+            check_all_explicit_imports_are_public(package, file;
+                                                  askwargs(all_explicit_imports_are_public)...) ===
+            nothing
         end
 
         if all_qualified_accesses_via_owners !== false
-            @test check_all_qualified_accesses_via_owners(package, file;
-                                                          askwargs(all_qualified_accesses_via_owners)...) ===
-                  nothing
+            check_all_qualified_accesses_via_owners(package, file;
+                                                    askwargs(all_qualified_accesses_via_owners)...) ===
+            nothing
         end
 
         if all_qualified_accesses_are_public !== false
-            @test check_all_qualified_accesses_are_public(package, file;
-                                                          askwargs(all_qualified_accesses_are_public)...) ===
-                  nothing
+            check_all_qualified_accesses_are_public(package, file;
+                                                    askwargs(all_qualified_accesses_are_public)...) ===
+            nothing
         end
 
         if no_self_qualified_accesses !== false
-            @test check_no_self_qualified_accesses(package, file;
-                                                   askwargs(no_self_qualified_accesses)...) ===
-                  nothing
+            check_no_self_qualified_accesses(package, file;
+                                             askwargs(no_self_qualified_accesses)...) ===
+            nothing
         end
     end
 end
