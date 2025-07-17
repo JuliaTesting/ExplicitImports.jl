@@ -1,10 +1,19 @@
 module ExplicitImports
 
-using JuliaSyntax, AbstractTrees
+#! explicit-imports: off
+# We vendor JuliaSyntax to avoid compatibility problems. We tell ExplicitImports to ignore
+# this inclusion since otherwise it will complain about dynamic includes and we don't really
+# want it to recurse into JS anyway.
+include(joinpath(pkgdir(ExplicitImports), "vendor", "JuliaSyntax", "src", "JuliaSyntax.jl"))
+#! explicit-imports: on
+
+using .JuliaSyntax
 # suppress warning about Base.parse collision, even though parse is never used
 # this avoids a warning when loading the package while creating an unused explicit import
 # the former occurs for all users, the latter only for developers of this package
-using JuliaSyntax: parse
+using .JuliaSyntax: parse
+
+using AbstractTrees
 using AbstractTrees: parent
 using TOML: TOML, parsefile
 using Compat: Compat, @compat
