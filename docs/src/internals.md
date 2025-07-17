@@ -22,4 +22,5 @@ ExplicitImports.get_names_used
 ExplicitImports.analyze_all_names
 ExplicitImports.inspect_session
 ExplicitImports.FileAnalysis
+ExplicitImports.get_default_skip_pairs
 ```
