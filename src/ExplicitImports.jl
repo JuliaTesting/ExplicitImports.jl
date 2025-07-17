@@ -1,17 +1,19 @@
 module ExplicitImports
 
 #! explicit-imports: off
-# We vendor JuliaSyntax to avoid compatibility problems. We tell ExplicitImports to ignore
+# We vendor some dependencies to avoid compatibility problems. We tell ExplicitImports to ignore
 # this inclusion since otherwise it will complain about dynamic includes and we don't really
-# want it to recurse into JS anyway.
-include(joinpath(pkgdir(ExplicitImports), "vendor", "JuliaSyntax", "src", "JuliaSyntax.jl"))
+# want it to recurse into vendored dependencies anyway.
+module Vendored
+include(joinpath("..", "vendor", "JuliaSyntax", "src", "JuliaSyntax.jl"))
+end
 #! explicit-imports: on
 
-using .JuliaSyntax
+using .Vendored.JuliaSyntax
 # suppress warning about Base.parse collision, even though parse is never used
 # this avoids a warning when loading the package while creating an unused explicit import
 # the former occurs for all users, the latter only for developers of this package
-using .JuliaSyntax: parse
+using .Vendored.JuliaSyntax: parse
 
 using AbstractTrees
 using AbstractTrees: parent
@@ -325,14 +327,14 @@ vendors a copy of JuliaSyntax to avoid compatibility issues. In order for Explic
 that submodule when analyzing itself, we add a method:
 
 ```julia
-ExplicitImports.ignore_submodules(::ExplicitImports.ModuleDispatcher{ExplicitImports}) = (ExplicitImports.JuliaSyntax,)
+ExplicitImports.ignore_submodules(::ExplicitImports.ModuleDispatcher{ExplicitImports}) = (ExplicitImports.Vendored,)
 ```
 
 Other packages can add methods to  `ignore_submodules` in the same way (presumably via a package extension).
 """
 ignore_submodules(::ModuleDispatcher{T}) where {T} = ()
 
-ignore_submodules(::ModuleDispatcher{ExplicitImports}) = (JuliaSyntax,)
+ignore_submodules(::ModuleDispatcher{ExplicitImports}) = (Vendored,)
 
 # recurse through to find all submodules of `mod`
 function _find_submodules(mod)
