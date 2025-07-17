@@ -9,5 +9,5 @@ To update the dependencies, install the `vendor` environment and invoke `run.jl`
 
 ```sh
 julia --project=vendor -e 'using Pkg; Pkg.instantiate()'
-julia --project=vendor run.jl
+julia --project=vendor vendor/run.jl
 ```
