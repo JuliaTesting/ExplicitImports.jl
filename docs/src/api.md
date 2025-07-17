@@ -84,3 +84,9 @@ using Bar # again will be checked
 ```
 
 Note that this can of course compromise the analysis. If packages are loaded but ExplicitImports can't see them (as it has been turned off) then it will not know where the names came from. User beware!
+
+This can be paired with telling ExplicitImports to ignore submodules via [`ExplicitImports.ignore_submodules`](@ref):
+
+```@docs
+ExplicitImports.ignore_submodules
+```

@@ -21,6 +21,9 @@ using Markdown: Markdown
 using PrecompileTools: @setup_workload, @compile_workload
 using Pkg: Pkg
 
+# we'll borrow their `@_public` macro; if this goes away, we can get our own
+JuliaSyntax.@_public ignore_submodules
+
 export print_explicit_imports, explicit_imports, check_no_implicit_imports,
        explicit_imports_nonrecursive
 export print_explicit_imports_script
@@ -313,6 +316,25 @@ function _parentmodule(mod)
     return parentmodule(mod)
 end
 
+struct ModuleDispatcher{T} end
+
+"""
+    ignore_submodules(::ModuleDispatcher{mod}) where {mod}
+
+Tell ExplicitImports to ignore direct submodules of `mod`. For example, ExplicitImports
+vendors a copy of JuliaSyntax to avoid compatibility issues. In order for ExplicitImports to ignore
+that submodule when analyzing itself, we add a method:
+
+```julia
+ExplicitImports.ignore_submodules(::ExplicitImports.ModuleDispatcher{ExplicitImports}) = (ExplicitImports.JuliaSyntax,)
+```
+
+Other packages can add methods to  `ignore_submodules` in the same way (presumably via a package extension).
+"""
+ignore_submodules(::ModuleDispatcher{T}) where {T}
+
+ignore_submodules(::ModuleDispatcher{ExplicitImports}) = (JuliaSyntax,)
+
 # recurse through to find all submodules of `mod`
 function _find_submodules(mod)
     sub_modules = Set{Module}([mod])
@@ -330,7 +352,7 @@ function _find_submodules(mod)
         end
         if is_submodule
             submod = getglobal(mod, name)
-            if submod ∉ sub_modules
+            if submod ∉ sub_modules && submod ∉ ignore_submodules(ModuleDispatcher{mod}())
                 union!(sub_modules, _find_submodules(submod))
             end
         end
