@@ -6,6 +6,7 @@ module ExplicitImports
 # want it to recurse into vendored dependencies anyway.
 module Vendored
 include(joinpath("..", "vendor", "JuliaSyntax", "src", "JuliaSyntax.jl"))
+include(joinpath("..", "vendor", "AbstractTrees", "src", "AbstractTrees.jl"))
 end
 #! explicit-imports: on
 
@@ -15,8 +16,8 @@ using .Vendored.JuliaSyntax
 # the former occurs for all users, the latter only for developers of this package
 using .Vendored.JuliaSyntax: parse
 
-using AbstractTrees
-using AbstractTrees: parent
+using .Vendored.AbstractTrees
+using .Vendored.AbstractTrees: parent
 using TOML: TOML, parsefile
 using Markdown: Markdown
 using PrecompileTools: @setup_workload, @compile_workload

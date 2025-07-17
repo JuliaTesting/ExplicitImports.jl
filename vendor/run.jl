@@ -1,6 +1,7 @@
 using PackageAnalyzer
 
-deps = [("JuliaSyntax", v"1.0.2")]
+deps = [("JuliaSyntax", v"1.0.2"),
+        ("AbstractTrees", v"0.4.5")]
 
 for (name, version)  in deps
     pkg = find_package(name; version)

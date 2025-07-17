@@ -12,7 +12,7 @@ using Test
 using DataFrames
 using Aqua
 using Logging, UUIDs
-using AbstractTrees
+using ExplicitImports.Vendored.AbstractTrees
 using ExplicitImports: is_function_definition_arg, SyntaxNodeWrapper, get_val
 using ExplicitImports: is_struct_type_param, is_struct_field_name, is_for_arg,
                        is_generator_arg, analyze_qualified_names
