@@ -305,9 +305,7 @@ See also: [`improper_qualified_accesses`](@ref) for programmatic access and the 
 """
 function check_all_qualified_accesses_via_owners(mod::Module, file=pathof(mod);
                                                  ignore::Tuple=(),
-                                                 skip::TUPLE_MODULE_PAIRS=(Base => Core,
-                                                                           Compat => Base,
-                                                                           Compat => Core),
+                                                 skip::TUPLE_MODULE_PAIRS=get_default_skip_pairs(),
                                                  require_submodule_access=false,
                                                  allow_internal_accesses=true)
     check_file(file)
@@ -522,9 +520,7 @@ See also: [`improper_explicit_imports`](@ref) for programmatic access to such im
 """
 function check_all_explicit_imports_via_owners(mod::Module, file=pathof(mod);
                                                ignore::Tuple=(),
-                                               skip::TUPLE_MODULE_PAIRS=(Base => Core,
-                                                                         Compat => Base,
-                                                                         Compat => Core),
+                                               skip::TUPLE_MODULE_PAIRS=get_default_skip_pairs(),
                                                allow_internal_imports=true,
                                                require_submodule_import=false)
     check_file(file)
