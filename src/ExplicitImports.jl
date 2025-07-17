@@ -7,7 +7,6 @@ using JuliaSyntax, AbstractTrees
 using JuliaSyntax: parse
 using AbstractTrees: parent
 using TOML: TOML, parsefile
-using Compat: Compat, @compat
 using Markdown: Markdown
 using PrecompileTools: @setup_workload, @compile_workload
 using Pkg: Pkg
@@ -147,7 +146,7 @@ function using_statements(io::IO, rows; linewidth=80, show_locations=false,
     indent = 0
     first = true
     for (mod, row) in zip(chosen, rows)
-        @compat (; name, location) = row
+        (; name, location) = row
         if show_locations || mod !== prev_mod || separate_lines
             cur_line_width = 0
             loc = show_locations ? " # used at $(location)" : ""
@@ -402,6 +401,5 @@ include("precompile.jl")
         sprint(print_explicit_imports, ExplicitImports, @__FILE__; context=:color => true)
     end
 end
-
 
 end
