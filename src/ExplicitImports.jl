@@ -5,8 +5,8 @@ module ExplicitImports
 # these as we don't want it to recurse into vendored dependencies.
 # We also add `Vendored` to `ignore_submodules` elsewhere.
 module Vendored
-include(joinpath("..", "vendor", "JuliaSyntax", "src", "JuliaSyntax.jl"))
-include(joinpath("..", "vendor", "AbstractTrees", "src", "AbstractTrees.jl"))
+include(joinpath("vendored", "JuliaSyntax", "src", "JuliaSyntax.jl"))
+include(joinpath("vendored", "AbstractTrees", "src", "AbstractTrees.jl"))
 end
 #! explicit-imports: on
 
