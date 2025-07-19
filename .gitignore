@@ -5,3 +5,4 @@ Manifest.toml
 Manifest-v*.toml
 /docs/build/
 dev
+!vendor/Manifest.toml

@@ -6,6 +6,7 @@ DocMeta.setdocmeta!(ExplicitImports, :DocTestSetup, :(using ExplicitImports);
 
 makedocs(;
          modules=[ExplicitImports],
+         checkdocs_ignored_modules=[ExplicitImports.Vendored],
          authors="Eric P. Hanson",
          repo=Remotes.GitHub("JuliaTesting", "ExplicitImports.jl"),
          sitename="ExplicitImports.jl",
