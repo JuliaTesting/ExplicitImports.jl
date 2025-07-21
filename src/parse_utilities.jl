@@ -11,6 +11,7 @@ struct SyntaxNodeWrapper
     node::JuliaLowering.SyntaxTree
     file::String
     bad_locations::Set{String}
+    context::Any
 end
 
 const OFF = "#! explicit-imports: off"
@@ -34,7 +35,15 @@ function SyntaxNodeWrapper(file::AbstractString; bad_locations=Set{String}())
     end
     contents = String(take!(stripped))
     parsed = JuliaSyntax.parseall(JuliaLowering.SyntaxTree, contents; ignore_warnings=true)
-    return SyntaxNodeWrapper(parsed, file, bad_locations)
+
+    # Perform lowering on the parse tree until scoping
+    ex = JuliaLowering.ensure_attributes(parsed; var_id=Int)
+    in_mod = Main
+    ctx1, ex_macroexpand = JuliaLowering.expand_forms_1(in_mod, ex)
+    ctx2, ex_desugar = JuliaLowering.expand_forms_2(ctx1, ex_macroexpand)
+    ctx3, ex_scoped = JuliaLowering.resolve_scopes(ctx2, ex_desugar)
+
+    return SyntaxNodeWrapper(ex_scoped, file, bad_locations, ctx3)
 end
 
 function try_parse_wrapper(file::AbstractString; bad_locations)
@@ -110,7 +119,7 @@ function AbstractTrees.children(wrapper::SyntaxNodeWrapper)
             end
         end
     end
-    return map(n -> SyntaxNodeWrapper(n, wrapper.file, wrapper.bad_locations),
+    return map(n -> SyntaxNodeWrapper(n, wrapper.file, wrapper.bad_locations, wrapper.context),
                js_children(node))
 end
 
