@@ -683,8 +683,8 @@ include("module_alias.jl")
 
         # https://github.com/JuliaTesting/ExplicitImports.jl/issues/129
         df = DataFrame(get_names_used("issue_129.jl").per_usage_info)
-        subset!(df, :name => ByRow(==(:foo)))
-        @test all(!, df.function_arg)
+        foos = subset(df, :name => ByRow(==(:foo)))
+        @test only(subset(foos, :function_arg).location) == "issue_129.jl:10:9"
     end
 
     @testset "has_ancestor" begin
