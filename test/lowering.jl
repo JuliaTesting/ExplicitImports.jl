@@ -1,6 +1,9 @@
+# Scratch work - this file is not included anywhere
+
 using ExplicitImports.Vendored.JuliaLowering, ExplicitImports.Vendored.JuliaSyntax
 using .JuliaLowering: SyntaxTree, ensure_attributes, showprov
 using ExplicitImports.Vendored.AbstractTrees
+using ExplicitImports.Vendored.AbstractTrees: parent
 
 # piracy
 AbstractTrees.children(t::SyntaxTree) = something(JuliaSyntax.children(t), ())
@@ -10,14 +13,30 @@ using Compat # dep of test_mods.jl
 include("test_mods.jl")
 
 src = read("test_mods.jl", String)
-tree = parseall(JuliaLowering.SyntaxTree, src; filename="tests_mods.jl")
+tree = TreeCursor(parseall(JuliaLowering.SyntaxTree, src; filename="tests_mods.jl"))
 
-testmod1_code = JuliaSyntax.children(JuliaSyntax.children(tree)[2])[2]
-func = JuliaSyntax.children(testmod1_code)[end - 1]
+cchildren(x) = collect(children(x))
+testmod1_code = cchildren(cchildren(tree)[2])[2]
+func = cchildren(testmod1_code)[end - 1]
 
-leaf = JuliaSyntax.children(func)[2]
+leaf = cchildren(func)[2]
+nodevalue(leaf) # print_explicit_imports
 
-ex = testmod1_code
+nodevalue(AbstractTrees.parent(leaf)) # call defining f
+
+
+
+cchildren(x) = collect(children(x))
+testmod1_code = cchildren(cchildren(tree)[2])[2]
+func = cchildren(testmod1_code)[end]
+
+leaf = cchildren(cchildren(func)[2])[2]
+nodevalue(leaf) #  check_no_implicit_imports as an Identifier
+
+nodevalue(AbstractTrees.parent(leaf)) # . with ExplicitImports and check_no_implicit_imports
+
+
+ex = nodevalue(testmod1_code)
 ex = ensure_attributes(ex; var_id=Int)
 
 in_mod = TestMod1
@@ -56,3 +75,12 @@ end
 # so if we want to check you are calling it from the "right" module, we need to follow the tree,
 # find this pattern, then check the module against the symbol.
 # That's what we already do, but now we should have more precision in knowing the module I think
+
+# Ok, so something we could do is basically like what we do now in `get_names_used`:
+# 1. find the leaves. Throw out anything whose `kind` isn't a BindingId or a Symbol (I think)
+# 2. Symbols may be qualified; check if the parent is `.`. Then the first parent is the module(?). If not qualified then not interesting (?)
+# 3. BindingIds are potential globals, and are potentially qualifying another name
+
+leaf = collect(Leaves(TreeCursor(ex_scoped)))[end-3]
+nodevalue(leaf)
+nodevalue(AbstractTrees.parent(leaf))

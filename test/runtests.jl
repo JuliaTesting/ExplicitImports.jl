@@ -13,7 +13,7 @@ using DataFrames
 using Aqua
 using Logging, UUIDs
 using ExplicitImports.Vendored.AbstractTrees
-using ExplicitImports: is_function_definition_arg, SyntaxNodeWrapper, get_val
+using ExplicitImports: is_function_definition_arg, SyntaxNodeWrapper, try_get_val
 using ExplicitImports: is_struct_type_param, is_struct_field_name, is_for_arg,
                        is_generator_arg, analyze_qualified_names
 using TestPkg, Markdown
@@ -74,12 +74,16 @@ include("script.jl")
 include("imports.jl")
 include("test_qualified_access.jl")
 include("test_explicit_imports.jl")
-include("main.jl")
 include("Test_Mod_Underscores.jl")
 include("module_alias.jl")
 include("issue_129.jl")
 
 @testset "ExplicitImports" begin
+
+    @testset "main() function" begin
+        include("main.jl")
+    end
+
     @testset "deprecations" begin
         include("deprecated.jl")
     end
@@ -145,7 +149,7 @@ include("issue_129.jl")
     @testset "imports" begin
         cursor = TreeCursor(SyntaxNodeWrapper("imports.jl"))
         leaves = collect(Leaves(cursor))
-        import_type_pairs = get_val.(leaves) .=> analyze_import_type.(leaves)
+        import_type_pairs = try_get_val.(leaves) .=> analyze_import_type.(leaves)
         filter!(import_type_pairs) do (k, v)
             return v !== :not_import
         end
@@ -181,7 +185,7 @@ include("issue_129.jl")
                :f => :import_RHS]
 
         inds = findall(==(:import_RHS), analyze_import_type.(leaves))
-        lhs_rhs_pairs = get_import_lhs.(leaves[inds]) .=> get_val.(leaves[inds])
+        lhs_rhs_pairs = get_import_lhs.(leaves[inds]) .=> try_get_val.(leaves[inds])
         @test lhs_rhs_pairs == [[:., :., :Exporter] => :exported_a,
                                 [:., :., :Exporter] => :exported_c,
                                 [:., :., :Exporter] => :exported_c,
@@ -494,9 +498,9 @@ include("issue_129.jl")
     @testset "structs" begin
         cursor = TreeCursor(SyntaxNodeWrapper("test_mods.jl"))
         leaves = collect(Leaves(cursor))
-        @test map(get_val, filter(is_struct_type_param, leaves)) == [:X, :Y, :QR]
+        @test map(try_get_val, filter(is_struct_type_param, leaves)) == [:X, :Y, :QR]
 
-        @test map(get_val, filter(is_struct_field_name, leaves)) == [:x, :x, :x, :qr, :qr]
+        @test map(try_get_val, filter(is_struct_field_name, leaves)) == [:x, :x, :x, :qr, :qr]
 
         df = DataFrame(get_names_used("test_mods.jl").per_usage_info)
         subset!(df, :name => ByRow(==(:QR)), :module_path => ByRow(==([:TestMod5])))
@@ -513,7 +517,7 @@ include("issue_129.jl")
     @testset "loops" begin
         cursor = TreeCursor(SyntaxNodeWrapper("test_mods.jl"))
         leaves = collect(Leaves(cursor))
-        @test map(get_val, filter(is_for_arg, leaves)) ==
+        @test map(try_get_val, filter(is_for_arg, leaves)) ==
                 [:i, :I, :j, :k, :k, :j, :xi, :yi]
 
         # Tests #35
@@ -541,7 +545,7 @@ include("issue_129.jl")
 
         v = [:i1, :I, :i2, :I, :i3, :I, :i4, :I]
         w = [:i1, :I]
-        @test map(get_val, filter(is_generator_arg, leaves)) ==
+        @test map(try_get_val, filter(is_generator_arg, leaves)) ==
               [v; v; w; w; w; w; w]
 
         @test using_statement.(explicit_imports_nonrecursive(TestMod9, "test_mods.jl")) ==
@@ -673,13 +677,13 @@ include("issue_129.jl")
         purported_function_args = filter(is_function_definition_arg, leaves)
 
         # written this way to get clearer test failure messages
-        vals = unique(get_val.(purported_function_args))
+        vals = unique(try_get_val.(purported_function_args))
         @test vals == [:a]
 
         # we have 9*4  functions with one argument `a`, plus 2 macros
         @test length(purported_function_args) == 9 * 4 + 2
         non_function_args = filter(!is_function_definition_arg, leaves)
-        missed = filter(x -> get_val(x) === :a, non_function_args)
+        missed = filter(x -> try_get_val(x) === :a, non_function_args)
         @test isempty(missed)
 
         # https://github.com/JuliaTesting/ExplicitImports.jl/issues/129

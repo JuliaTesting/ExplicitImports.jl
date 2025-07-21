@@ -13,7 +13,7 @@ Base.@kwdef struct PerUsageInfo
     function_arg::Bool
     is_assignment::Bool
     module_path::Vector{Symbol}
-    scope_path::Vector{JuliaSyntax.SyntaxNode}
+    scope_path::Vector{JuliaLowering.SyntaxTree}
     struct_field_or_type_param::Bool
     for_loop_index::Bool
     generator_index::Bool
@@ -357,7 +357,7 @@ function analyze_name(leaf; debug=false)
     generator_index = is_generator_arg(leaf)
     catch_arg = is_catch_arg(leaf)
     module_path = Symbol[]
-    scope_path = JuliaSyntax.SyntaxNode[]
+    scope_path = JuliaLowering.SyntaxTree[]
     is_assignment = false
     node = leaf
     idx = 1
@@ -365,11 +365,9 @@ function analyze_name(leaf; debug=false)
     prev_node = nothing
     while true
         # update our state
-        val = get_val(node)
         k = kind(node)
-        args = nodevalue(node).node.raw.children
+        args = children(nodevalue(node).node)
 
-        debug && println(val, ": ", k)
         # Constructs that start a new local scope. Note `let` & `macro` *arguments* are not explicitly supported/tested yet,
         # but we can at least keep track of scope properly.
         if k in
@@ -389,7 +387,7 @@ function analyze_name(leaf; debug=false)
                 return kind(arg.node) == K"Identifier"
             end
             if !isempty(ids)
-                push!(module_path, first(ids).node.val)
+                push!(module_path, get_val(first(ids).node))
             end
             push!(scope_path, nodevalue(node).node)
         end
@@ -444,7 +442,7 @@ function analyze_all_names(file)
                                  function_arg::Bool,
                                  is_assignment::Bool,
                                  module_path::Vector{Symbol},
-                                 scope_path::Vector{JuliaSyntax.SyntaxNode},
+                                 scope_path::Vector{JuliaLowering.SyntaxTree},
                                  struct_field_or_type_param::Bool,
                                  for_loop_index::Bool,
                                  generator_index::Bool,
@@ -495,6 +493,7 @@ function analyze_all_names(file)
         end
         ret = analyze_name(leaf)
         push!(seen_modules, ret.module_path)
+        # @show name, qualified_by, import_type, explicitly_imported_by, location, ret
         push!(per_usage_info,
               (; name, qualified_by, import_type, explicitly_imported_by, location, ret...))
     end
@@ -532,7 +531,7 @@ end
 # in JuliaSyntax 1.0. This is very slow and also not quite the semantics we want anyway.
 # Here, we wrap our nodes in a custom type that only compares object identity.
 struct SyntaxNodeList
-    nodes::Vector{JuliaSyntax.SyntaxNode}
+    nodes::Vector{JuliaLowering.SyntaxTree}
 end
 
 function Base.:(==)(a::SyntaxNodeList, b::SyntaxNodeList)
