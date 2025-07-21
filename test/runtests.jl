@@ -77,6 +77,7 @@ include("test_explicit_imports.jl")
 include("main.jl")
 include("Test_Mod_Underscores.jl")
 include("module_alias.jl")
+include("issue_129.jl")
 
 @testset "ExplicitImports" begin
     @testset "deprecations" begin
