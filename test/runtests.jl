@@ -12,11 +12,12 @@ using Test
 using DataFrames
 using Aqua
 using Logging, UUIDs
-using AbstractTrees
+using ExplicitImports.Vendored.AbstractTrees
 using ExplicitImports: is_function_definition_arg, SyntaxNodeWrapper, get_val
 using ExplicitImports: is_struct_type_param, is_struct_field_name, is_for_arg,
                        is_generator_arg, analyze_qualified_names
 using TestPkg, Markdown
+using Compat: Compat # load for compat skipping tests
 
 function exception_string(f)
     str = try
@@ -76,44 +77,37 @@ include("test_explicit_imports.jl")
 include("main.jl")
 include("Test_Mod_Underscores.jl")
 include("module_alias.jl")
+include("issue_129.jl")
 
 @testset "ExplicitImports" begin
-    # For deprecations, we are using `maxlog`, which
-    # the TestLogger only respects in Julia 1.8+.
-    # (https://github.com/JuliaLang/julia/commit/02f7332027bd542b0701956a0f838bc75fa2eebd)
-    if VERSION >= v"1.8-"
-        @testset "deprecations" begin
-            include("deprecated.jl")
-        end
+    @testset "deprecations" begin
+        include("deprecated.jl")
     end
 
-    # package extension support needs Julia 1.9+
-    if VERSION > v"1.9-"
-        @testset "Extensions" begin
-            submods = ExplicitImports.find_submodules(TestPkg)
-            @test length(submods) == 2
-            DataFramesExt = Base.get_extension(TestPkg, :DataFramesExt)
-            @test haskey(Dict(submods), DataFramesExt)
+    @testset "Extensions" begin
+        submods = ExplicitImports.find_submodules(TestPkg)
+        @test length(submods) == 2
+        DataFramesExt = Base.get_extension(TestPkg, :DataFramesExt)
+        @test haskey(Dict(submods), DataFramesExt)
 
-            ext_imports = Dict(only_name_source(explicit_imports(TestPkg)))[DataFramesExt]
-            @test ext_imports == [(; name=:DataFrames, source=DataFrames),
-                                  (; name=:DataFrame, source=DataFrames),
-                                  (; name=:groupby, source=DataFrames)] ||
-                  ext_imports == [(; name=:DataFrames, source=DataFrames),
-                                  (; name=:DataFrame, source=DataFrames),
-                                  (; name=:groupby, source=DataFrames.DataAPI)]
-        end
+        ext_imports = Dict(only_name_source(explicit_imports(TestPkg)))[DataFramesExt]
+        @test ext_imports == [(; name=:DataFrames, source=DataFrames),
+                                (; name=:DataFrame, source=DataFrames),
+                                (; name=:groupby, source=DataFrames)] ||
+                ext_imports == [(; name=:DataFrames, source=DataFrames),
+                                (; name=:DataFrame, source=DataFrames),
+                                (; name=:groupby, source=DataFrames.DataAPI)]
     end
 
     @testset "module aliases (#106)" begin
-        # https://github.com/ericphanson/ExplicitImports.jl/issues/106
+        # https://github.com/JuliaTesting/ExplicitImports.jl/issues/106
         ret = Dict(improper_explicit_imports(ModAlias, "module_alias.jl"))
         @test isempty(ret[ModAlias])
         @test isempty(ret[ModAlias.M1])
     end
 
     @testset "function arg bug" begin
-        # https://github.com/ericphanson/ExplicitImports.jl/issues/62
+        # https://github.com/JuliaTesting/ExplicitImports.jl/issues/62
         df = DataFrame(get_names_used("test_mods.jl").per_usage_info)
         subset!(df, :name => ByRow(==(:norm)), :module_path => ByRow(==([:TestMod13])))
 
@@ -125,29 +119,27 @@ include("module_alias.jl")
         @test owner_mod_for_printing(Core, :println, Core.println) == Core
     end
 
-    # https://github.com/ericphanson/ExplicitImports.jl/issues/69
+    # https://github.com/JuliaTesting/ExplicitImports.jl/issues/69
     @testset "Reexport support" begin
         @test check_no_stale_explicit_imports(TestMod15, "test_mods.jl") === nothing
         @test isempty(improper_explicit_imports_nonrecursive(TestMod15, "test_mods.jl"))
         @test isempty(improper_explicit_imports(TestMod15, "test_mods.jl")[1][2])
     end
 
-    if VERSION >= v"1.7-"
-        # https://github.com/ericphanson/ExplicitImports.jl/issues/70
-        @testset "Compat skipping" begin
-            @test check_all_explicit_imports_via_owners(TestMod14, "test_mods.jl") ===
-                  nothing
-            @test check_all_qualified_accesses_via_owners(TestMod14, "test_mods.jl") ===
-                  nothing
+    # https://github.com/JuliaTesting/ExplicitImports.jl/issues/70
+    @testset "Compat skipping" begin
+        @test check_all_explicit_imports_via_owners(TestMod14, "test_mods.jl") ===
+                nothing
+        @test check_all_qualified_accesses_via_owners(TestMod14, "test_mods.jl") ===
+                nothing
 
-            @test isempty(improper_explicit_imports_nonrecursive(TestMod14, "test_mods.jl"))
-            @test isempty(improper_explicit_imports(TestMod14, "test_mods.jl")[1][2])
+        @test isempty(improper_explicit_imports_nonrecursive(TestMod14, "test_mods.jl"))
+        @test isempty(improper_explicit_imports(TestMod14, "test_mods.jl")[1][2])
 
-            @test isempty(improper_qualified_accesses_nonrecursive(TestMod14,
-                                                                   "test_mods.jl"))
+        @test isempty(improper_qualified_accesses_nonrecursive(TestMod14,
+                                                                "test_mods.jl"))
 
-            @test isempty(improper_qualified_accesses(TestMod14, "test_mods.jl")[1][2])
-        end
+        @test isempty(improper_qualified_accesses(TestMod14, "test_mods.jl")[1][2])
     end
 
     @testset "imports" begin
@@ -518,17 +510,15 @@ include("module_alias.jl")
               ["using LinearAlgebra: LinearAlgebra"]
     end
 
-    if VERSION >= v"1.7-"
-        @testset "loops" begin
-            cursor = TreeCursor(SyntaxNodeWrapper("test_mods.jl"))
-            leaves = collect(Leaves(cursor))
-            @test map(get_val, filter(is_for_arg, leaves)) ==
-                  [:i, :I, :j, :k, :k, :j, :xi, :yi]
+    @testset "loops" begin
+        cursor = TreeCursor(SyntaxNodeWrapper("test_mods.jl"))
+        leaves = collect(Leaves(cursor))
+        @test map(get_val, filter(is_for_arg, leaves)) ==
+                [:i, :I, :j, :k, :k, :j, :xi, :yi]
 
-            # Tests #35
-            @test using_statement.(explicit_imports_nonrecursive(TestMod6, "test_mods.jl")) ==
-                  ["using LinearAlgebra: LinearAlgebra"]
-        end
+        # Tests #35
+        @test using_statement.(explicit_imports_nonrecursive(TestMod6, "test_mods.jl")) ==
+                ["using LinearAlgebra: LinearAlgebra"]
     end
 
     @testset "nested local scope" begin
@@ -540,7 +530,7 @@ include("module_alias.jl")
     end
 
     @testset "types without values in function signatures" begin
-        # https://github.com/ericphanson/ExplicitImports.jl/issues/33
+        # https://github.com/JuliaTesting/ExplicitImports.jl/issues/33
         @test using_statement.(explicit_imports_nonrecursive(TestMod8, "test_mods.jl")) ==
               ["using LinearAlgebra: LinearAlgebra", "using LinearAlgebra: QR"]
     end
@@ -554,15 +544,13 @@ include("module_alias.jl")
         @test map(get_val, filter(is_generator_arg, leaves)) ==
               [v; v; w; w; w; w; w]
 
-        if VERSION >= v"1.7-"
-            @test using_statement.(explicit_imports_nonrecursive(TestMod9, "test_mods.jl")) ==
-                  ["using LinearAlgebra: LinearAlgebra"]
+        @test using_statement.(explicit_imports_nonrecursive(TestMod9, "test_mods.jl")) ==
+                ["using LinearAlgebra: LinearAlgebra"]
 
-            per_usage_info, _ = analyze_all_names("test_mods.jl")
-            df = DataFrame(per_usage_info)
-            subset!(df, :module_path => ByRow(==([:TestMod9])), :name => ByRow(==(:i1)))
-            @test all(==(ExplicitImports.InternalGenerator), df.analysis_code)
-        end
+        per_usage_info, _ = analyze_all_names("test_mods.jl")
+        df = DataFrame(per_usage_info)
+        subset!(df, :module_path => ByRow(==([:TestMod9])), :name => ByRow(==(:i1)))
+        @test all(==(ExplicitImports.InternalGenerator), df.analysis_code)
     end
 
     @testset "while loops" begin
@@ -577,30 +565,28 @@ include("module_alias.jl")
               [ExplicitImports.InternalAssignment, ExplicitImports.External]
     end
 
-    if VERSION >= v"1.7-"
-        @testset "do- syntax" begin
-            @test using_statement.(explicit_imports_nonrecursive(TestMod11, "test_mods.jl")) ==
-                  ["using LinearAlgebra: LinearAlgebra",
-                   "using LinearAlgebra: Hermitian",
-                   "using LinearAlgebra: svd"]
+    @testset "do- syntax" begin
+        @test using_statement.(explicit_imports_nonrecursive(TestMod11, "test_mods.jl")) ==
+                ["using LinearAlgebra: LinearAlgebra",
+                "using LinearAlgebra: Hermitian",
+                "using LinearAlgebra: svd"]
 
-            per_usage_info, _ = analyze_all_names("test_mods.jl")
-            df = DataFrame(per_usage_info)
-            subset!(df, :module_path => ByRow(==([:TestMod11])))
+        per_usage_info, _ = analyze_all_names("test_mods.jl")
+        df = DataFrame(per_usage_info)
+        subset!(df, :module_path => ByRow(==([:TestMod11])))
 
-            I_codes = subset(df, :name => ByRow(==(:I))).analysis_code
-            @test I_codes ==
-                  [ExplicitImports.InternalFunctionArg, ExplicitImports.IgnoredNonFirst,
-                   ExplicitImports.InternalFunctionArg, ExplicitImports.IgnoredNonFirst,
-                   ExplicitImports.InternalFunctionArg, ExplicitImports.IgnoredNonFirst,
-                   ExplicitImports.InternalFunctionArg, ExplicitImports.IgnoredNonFirst]
-            svd_codes = subset(df, :name => ByRow(==(:svd))).analysis_code
-            @test svd_codes ==
-                  [ExplicitImports.InternalFunctionArg, ExplicitImports.External]
-            Hermitian_codes = subset(df, :name => ByRow(==(:Hermitian))).analysis_code
-            @test Hermitian_codes ==
-                  [ExplicitImports.External, ExplicitImports.IgnoredNonFirst]
-        end
+        I_codes = subset(df, :name => ByRow(==(:I))).analysis_code
+        @test I_codes ==
+                [ExplicitImports.InternalFunctionArg, ExplicitImports.IgnoredNonFirst,
+                ExplicitImports.InternalFunctionArg, ExplicitImports.IgnoredNonFirst,
+                ExplicitImports.InternalFunctionArg, ExplicitImports.IgnoredNonFirst,
+                ExplicitImports.InternalFunctionArg, ExplicitImports.IgnoredNonFirst]
+        svd_codes = subset(df, :name => ByRow(==(:svd))).analysis_code
+        @test svd_codes ==
+                [ExplicitImports.InternalFunctionArg, ExplicitImports.External]
+        Hermitian_codes = subset(df, :name => ByRow(==(:Hermitian))).analysis_code
+        @test Hermitian_codes ==
+                [ExplicitImports.External, ExplicitImports.IgnoredNonFirst]
     end
 
     @testset "try-catch" begin
@@ -695,6 +681,12 @@ include("module_alias.jl")
         non_function_args = filter(!is_function_definition_arg, leaves)
         missed = filter(x -> get_val(x) === :a, non_function_args)
         @test isempty(missed)
+
+        # https://github.com/JuliaTesting/ExplicitImports.jl/issues/129
+        df = DataFrame(get_names_used("issue_129.jl").per_usage_info)
+        foos = subset(df, :name => ByRow(==(:foo)))
+        @test only(subset(foos, :function_arg).location) == "issue_129.jl:10:9"
+        check_no_stale_explicit_imports(Foo129, "issue_129.jl")
     end
 
     @testset "has_ancestor" begin

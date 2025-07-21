@@ -1,0 +1,3 @@
+src/vendored linguist-vendored
+# mark as generated so they are minimized in diffs by default
+src/vendored linguist-generated

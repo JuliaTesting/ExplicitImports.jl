@@ -6,12 +6,13 @@ DocMeta.setdocmeta!(ExplicitImports, :DocTestSetup, :(using ExplicitImports);
 
 makedocs(;
          modules=[ExplicitImports],
+         checkdocs_ignored_modules=[ExplicitImports.Vendored],
          authors="Eric P. Hanson",
-         repo=Remotes.GitHub("ericphanson", "ExplicitImports.jl"),
+         repo=Remotes.GitHub("JuliaTesting", "ExplicitImports.jl"),
          sitename="ExplicitImports.jl",
          format=Documenter.HTML(;
                                 prettyurls=get(ENV, "CI", "false") == "true",
-                                canonical="https://ericphanson.github.io/ExplicitImports.jl",
+                                canonical="https://JuliaTesting.github.io/ExplicitImports.jl",
                                 edit_link="main",
                                 assets=String[],),
          pages=["Home" => "index.md",
@@ -19,6 +20,6 @@ makedocs(;
                 "Dev docs" => "internals.md"],)
 
 deploydocs(;
-           repo="github.com/ericphanson/ExplicitImports.jl",
+           repo="github.com/JuliaTesting/ExplicitImports.jl",
            devbranch="main",
            push_preview=true)

@@ -13,8 +13,26 @@ struct SyntaxNodeWrapper
     bad_locations::Set{String}
 end
 
+const OFF = "#! explicit-imports: off"
+const ON = "#! explicit-imports: on"
+
 function SyntaxNodeWrapper(file::AbstractString; bad_locations=Set{String}())
-    contents = read(file, String)
+    stripped = IOBuffer()
+    on = true
+    for line in eachline(file; keep=true)
+        if strip(line) == OFF
+            on = false
+        end
+
+         if strip(line) == ON
+            on = true
+        end
+
+        if on
+            write(stripped, line)
+        end
+    end
+    contents = String(take!(stripped))
     parsed = JuliaSyntax.parseall(JuliaSyntax.SyntaxNode, contents; ignore_warnings=true)
     return SyntaxNodeWrapper(parsed, file, bad_locations)
 end
