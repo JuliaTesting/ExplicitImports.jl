@@ -1,9 +1,12 @@
-using JuliaLowering, JuliaSyntax
-using JuliaLowering: SyntaxTree, ensure_attributes, showprov
-using AbstractTrees
+using ExplicitImports.Vendored.JuliaLowering, ExplicitImports.Vendored.JuliaSyntax
+using .JuliaLowering: SyntaxTree, ensure_attributes, showprov
+using ExplicitImports.Vendored.AbstractTrees
+
 # piracy
 AbstractTrees.children(t::SyntaxTree) = something(JuliaSyntax.children(t), ())
 
+include("Exporter.jl")
+using Compat # dep of test_mods.jl
 include("test_mods.jl")
 
 src = read("test_mods.jl", String)
@@ -26,12 +29,9 @@ ctx3, ex_scoped = JuliaLowering.resolve_scopes(ctx2, ex_desugar)
 leaf = collect(Leaves(ex_scoped))[end - 3]
 showprov(leaf)
 
-binding_info = ctx3.bindings.info[leaf.var_id]
-binding_info.kind == :global
-
 global_bindings = filter(ctx3.bindings.info) do binding
     # want globals
-    keep = binding_info.kind == :global
+    keep = binding.kind == :global
 
     # internal ones seem non-interesting (`#self#` etc)
     keep &= !binding.is_internal
