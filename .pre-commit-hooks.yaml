@@ -6,4 +6,3 @@
   entry: --startup-file=no ./scripts/explicit-imports.jl --check
   types: [julia]
   minimum_pre_commit_version: "4.1.0"
-  additional_dependencies: ["ExplicitImports"]
