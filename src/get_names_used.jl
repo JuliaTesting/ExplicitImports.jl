@@ -196,8 +196,6 @@ end
 # check if `leaf` is a function argument (or kwarg), but not a default value etc,
 # which is part of a function definition (not just any function call)
 function is_non_anonymous_function_definition_arg(leaf)
-    # a call who is a child of `function` or `=` is a function def
-    # (I think!)
     if parents_match(leaf, (K"call",)) && call_is_func_def(parent(leaf))
         # We are a function arg if we're a child of `call` who is not the function name itself
         return child_index(leaf) != 1
@@ -241,7 +239,8 @@ function call_is_func_def(node)
     p === nothing && return false
     # note: macros only support full-form function definitions
     # (not inline)
-    kind(p) in (K"function", K"macro") && return true
+    # must be first child of function/macro to qualify
+    kind(p) in (K"function", K"macro") && child_index(node) == 1 && return true
     return false
 end
 
