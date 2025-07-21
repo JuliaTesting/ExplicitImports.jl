@@ -321,21 +321,21 @@ end
 struct ModuleDispatcher{T} end
 
 """
-    ignore_submodules(::ModuleDispatcher{mod}) where {mod}
+    ignore_submodules(::ModuleDispatcher{modname}) where {modname}
 
-Tell ExplicitImports to ignore direct submodules of `mod`. For example, ExplicitImports
+Tell ExplicitImports to ignore direct submodules of `modname`. For example, ExplicitImports
 vendors a copy of JuliaSyntax to avoid compatibility issues. In order for ExplicitImports to ignore
 that submodule when analyzing itself, we add a method:
 
 ```julia
-ExplicitImports.ignore_submodules(::ExplicitImports.ModuleDispatcher{ExplicitImports}) = (ExplicitImports.Vendored,)
+ExplicitImports.ignore_submodules(::ExplicitImports.ModuleDispatcher{:ExplicitImports}) = (ExplicitImports.Vendored,)
 ```
 
 Other packages can add methods to  `ignore_submodules` in the same way (presumably via a package extension).
 """
 ignore_submodules(::ModuleDispatcher{T}) where {T} = ()
 
-ignore_submodules(::ModuleDispatcher{ExplicitImports}) = (Vendored,)
+ignore_submodules(::ModuleDispatcher{:ExplicitImports}) = (Vendored,)
 
 # recurse through to find all submodules of `mod`
 function _find_submodules(mod)
@@ -354,7 +354,8 @@ function _find_submodules(mod)
         end
         if is_submodule
             submod = getglobal(mod, name)
-            if submod ∉ sub_modules && submod ∉ ignore_submodules(ModuleDispatcher{mod}())
+            modname = Symbol(mod)
+            if submod ∉ sub_modules && submod ∉ ignore_submodules(ModuleDispatcher{modname}())
                 union!(sub_modules, _find_submodules(submod))
             end
         end
