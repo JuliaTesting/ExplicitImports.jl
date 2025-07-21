@@ -7,6 +7,7 @@ module ExplicitImports
 module Vendored
 include(joinpath("vendored", "JuliaSyntax", "src", "JuliaSyntax.jl"))
 include(joinpath("vendored", "AbstractTrees", "src", "AbstractTrees.jl"))
+include(joinpath("vendored", "JuliaLowering", "src", "JuliaLowering.jl"))
 end
 #! explicit-imports: on
 
