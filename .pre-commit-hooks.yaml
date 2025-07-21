@@ -3,6 +3,6 @@
   name: ExplicitImports checks
   description: "ExplicitImports.jl namespace checks"
   language: julia
-  entry: --startup-file=no ./scripts/explicit-imports.jl --check
+  entry: ./scripts/explicit-imports.jl --check
   types: [julia]
   minimum_pre_commit_version: "4.1.0"
