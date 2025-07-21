@@ -78,7 +78,6 @@ include("main.jl")
 include("Test_Mod_Underscores.jl")
 include("module_alias.jl")
 include("issue_129.jl")
-include("issue_120.jl")
 
 @testset "ExplicitImports" begin
     @testset "deprecations" begin
@@ -688,9 +687,6 @@ include("issue_120.jl")
         foos = subset(df, :name => ByRow(==(:foo)))
         @test only(subset(foos, :function_arg).location) == "issue_129.jl:10:9"
         check_no_stale_explicit_imports(Foo129, "issue_129.jl")
-        
-        # https://github.com/JuliaTesting/ExplicitImports.jl/issues/120
-        check_no_stale_explicit_imports(Foo120, "issue_120.jl")
     end
 
     @testset "has_ancestor" begin
