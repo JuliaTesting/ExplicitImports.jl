@@ -685,6 +685,7 @@ include("module_alias.jl")
         df = DataFrame(get_names_used("issue_129.jl").per_usage_info)
         foos = subset(df, :name => ByRow(==(:foo)))
         @test only(subset(foos, :function_arg).location) == "issue_129.jl:10:9"
+        check_no_stale_explicit_imports(Foo129, "issue_129.jl")
     end
 
     @testset "has_ancestor" begin
