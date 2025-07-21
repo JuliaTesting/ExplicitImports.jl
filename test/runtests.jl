@@ -77,6 +77,7 @@ include("test_explicit_imports.jl")
 include("main.jl")
 include("Test_Mod_Underscores.jl")
 include("module_alias.jl")
+include("issue_129.jl")
 
 @testset "ExplicitImports" begin
     @testset "deprecations" begin
@@ -680,6 +681,12 @@ include("module_alias.jl")
         non_function_args = filter(!is_function_definition_arg, leaves)
         missed = filter(x -> get_val(x) === :a, non_function_args)
         @test isempty(missed)
+
+        # https://github.com/JuliaTesting/ExplicitImports.jl/issues/129
+        df = DataFrame(get_names_used("issue_129.jl").per_usage_info)
+        foos = subset(df, :name => ByRow(==(:foo)))
+        @test only(subset(foos, :function_arg).location) == "issue_129.jl:10:9"
+        check_no_stale_explicit_imports(Foo129, "issue_129.jl")
     end
 
     @testset "has_ancestor" begin
