@@ -5,5 +5,5 @@
   language: julia
   entry: ./scripts/explicit-imports.jl --check
   types: [julia]
-  minimum_pre_commit_version: "4.1.0"
+  minimum_pre_commit_version: "4.2.0"
   pass_filenames: false
