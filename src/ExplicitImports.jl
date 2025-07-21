@@ -7,8 +7,11 @@ module ExplicitImports
 module Vendored
 include(joinpath("vendored", "JuliaSyntax", "src", "JuliaSyntax.jl"))
 include(joinpath("vendored", "AbstractTrees", "src", "AbstractTrees.jl"))
+include(joinpath("vendored", "JuliaLowering", "src", "JuliaLowering.jl"))
 end
 #! explicit-imports: on
+
+using .Vendored.JuliaLowering
 
 using .Vendored.JuliaSyntax
 # suppress warning about Base.parse collision, even though parse is never used
@@ -430,10 +433,10 @@ end
 
 include("precompile.jl")
 
-@setup_workload begin
-    @compile_workload begin
-        sprint(print_explicit_imports, ExplicitImports, @__FILE__; context=:color => true)
-    end
-end
+# @setup_workload begin
+#     @compile_workload begin
+#         sprint(print_explicit_imports, ExplicitImports, @__FILE__; context=:color => true)
+#     end
+# end
 
 end
