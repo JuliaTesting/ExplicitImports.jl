@@ -9,10 +9,6 @@ Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
 
-[sources]
-JuliaLowering = {path = "dev/JuliaLowering"}
-JuliaSyntax = {path = "dev/JuliaSyntax"}
-
 [compat]
 Aqua = "0.8.4"
 Compat = "4.15"
