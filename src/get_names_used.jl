@@ -345,6 +345,7 @@ function is_double_colon_LHS(leaf)
     return child_index(leaf) == 1
 end
 
+DEBUG = []
 # Here we use the magic of AbstractTrees' `TreeCursor` so we can start at
 # a leaf and follow the parents up to see what scopes our leaf is in.
 # TODO-someday- cleanup. This basically has two jobs: check is function arg etc, and figure out the scope/module path.
@@ -364,8 +365,7 @@ function analyze_name(leaf)
     idx = 1
     @show try_get_val(nodevalue(leaf))
     @show kind(nodevalue(get_parent(leaf, 1)))
-    global CTX = nodevalue(leaf).context
-    global LEAF = leaf
+    push!(DEBUG, leaf)
     prev_node = nothing
     while true
         # update our state

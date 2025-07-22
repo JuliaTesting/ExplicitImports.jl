@@ -15,6 +15,17 @@ struct SyntaxNodeWrapper
     in_mod::Module
 end
 
+function Base.show(io::IO, n::SyntaxNodeWrapper)
+    print(io, "SyntaxNodeWrapper: ")
+    show(io, n.node)
+end
+
+function Base.show(io::IO, mime::MIME"text/plain", n::SyntaxNodeWrapper)
+    print(io, "SyntaxNodeWrapper: ")
+    show(io, mime, n.node)
+    print(io, "File: ", n.file)
+end
+
 const OFF = "#! explicit-imports: off"
 const ON = "#! explicit-imports: on"
 
@@ -203,4 +214,14 @@ function has_parent(n, i=1)
         n === nothing && return false
     end
     return true
+end
+
+# these would be piracy, but we've vendored AbstractTrees so it's technically fine
+function Base.show(io::IO, cursor::AbstractTrees.ImplicitCursor)
+    print(io, "ImplicitCursor: ")
+    show(io, nodevalue(cursor))
+end
+function Base.show(io::IO, mime::MIME"text/plain", cursor::AbstractTrees.ImplicitCursor)
+    print(io, "ImplicitCursor: ")
+    show(io, mime, nodevalue(cursor))
 end

@@ -28,7 +28,9 @@ for pkg in deps
             contents = replace(read(joinpath(root, file), String),
                                "using JuliaSyntax" => "using ..JuliaSyntax",
                                # remove unnecessary `using JuliaLowering` from src/hooks.jl
-                               "using JuliaLowering" => "")
+                               "using JuliaLowering" => "",
+                               # for some reason Revise seems to need this:
+                               "_include(path::AbstractString) = Base.include(JuliaLowering, path)" => "_include(path::AbstractString) = Base.include(JuliaLowering, joinpath(@__DIR__, path))")
             chmod(joinpath(root, file), 0o666) # make writable
             write(abspath(joinpath(root, file)), contents)
             chmod(joinpath(root, file), 0o444) # back to read-only

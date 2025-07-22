@@ -4,7 +4,7 @@ baremodule JuliaLowering
 using Base
 # We define a separate _include() for use in this module to avoid mixing method
 # tables with the public `JuliaLowering.include()` API
-_include(path::AbstractString) = Base.include(JuliaLowering, path)
+_include(path::AbstractString) = Base.include(JuliaLowering, joinpath(@__DIR__, path))
 using Core: eval
 
 using ..JuliaSyntax
