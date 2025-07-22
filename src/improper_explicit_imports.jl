@@ -1,6 +1,6 @@
 function analyze_explicitly_imported_names(mod::Module, file=pathof(mod);
                                            # private undocumented kwarg for hoisting this analysis
-                                           file_analysis=get_names_used(file))
+                                           file_analysis=get_names_used(file, mod))
     check_file(file)
     (; per_usage_info, unnecessary_explicit_import, tainted) = filter_to_module(file_analysis,
                                                                                         mod)
@@ -174,7 +174,7 @@ function improper_explicit_imports_nonrecursive(mod::Module, file=pathof(mod);
                                                 strict=true,
                                                 allow_internal_imports=true,
                                                 # private undocumented kwarg for hoisting this analysis
-                                                file_analysis=get_names_used(file))
+                                                file_analysis=get_names_used(file, mod))
     check_file(file)
     problematic, tainted = analyze_explicitly_imported_names(mod, file; file_analysis)
 
@@ -255,7 +255,7 @@ function improper_explicit_imports(mod::Module, file=pathof(mod); strict=true,
     check_file(file)
     submodules = find_submodules(mod, file)
     file_analysis = Dict{String,FileAnalysis}()
-    fill_cache!(file_analysis, last.(submodules))
+    fill_cache!(file_analysis, last.(submodules), mod)
     return [submodule => improper_explicit_imports_nonrecursive(submodule, path; strict,
                                                                 file_analysis=file_analysis[path],
                                                                 skip,

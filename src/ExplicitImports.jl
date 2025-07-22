@@ -142,7 +142,7 @@ function explicit_imports(mod::Module, file=pathof(mod); skip=(mod, Base, Core),
     end
 
     submodules = find_submodules(mod, file)
-    fill_cache!(file_analysis, last.(submodules))
+    fill_cache!(file_analysis, last.(submodules), mod)
     return [submodule => explicit_imports_nonrecursive(submodule, path; skip, warn_stale,
                                                        file_analysis=file_analysis[path],
                                                        strict)
@@ -209,7 +209,7 @@ function explicit_imports_nonrecursive(mod::Module, file=pathof(mod);
                                        # deprecated
                                        warn_stale=nothing,
                                        # private undocumented kwarg for hoisting this analysis
-                                       file_analysis=get_names_used(file))
+                                       file_analysis=get_names_used(file, mod))
     check_file(file)
     if warn_stale !== nothing
         @warn "[explicit_imports_nonrecursive] keyword argument `warn_stale` is deprecated and does nothing" _id = :explicit_imports_explicit_imports_warn_stale maxlog = 1
@@ -405,10 +405,10 @@ function find_submodule_path(file, submodule)
     return path
 end
 
-function fill_cache!(file_analysis::Dict, files)
+function fill_cache!(file_analysis::Dict, files, mod)
     for _file in files
         if !haskey(file_analysis, _file)
-            file_analysis[_file] = get_names_used(_file)
+            file_analysis[_file] = get_names_used(_file, mod)
         end
     end
     return file_analysis

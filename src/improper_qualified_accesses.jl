@@ -3,7 +3,7 @@
 
 function analyze_qualified_names(mod::Module, file=pathof(mod);
                                  # private undocumented kwarg for hoisting this analysis
-                                 file_analysis=get_names_used(file))
+                                 file_analysis=get_names_used(file, mod))
     check_file(file)
     (; per_usage_info, tainted) = filter_to_module(file_analysis, mod)
     # Do we want to do anything with `tainted`? This means there is unanalyzable code here
@@ -128,7 +128,7 @@ function improper_qualified_accesses_nonrecursive(mod::Module, file=pathof(mod);
                                                   # deprecated, does nothing
                                                   require_submodule_access=nothing,
                                                   # private undocumented kwarg for hoisting this analysis
-                                                  file_analysis=get_names_used(file))
+                                                  file_analysis=get_names_used(file, mod))
     check_file(file)
     if require_submodule_access !== nothing
         @warn "[improper_qualified_accesses_nonrecursive] `require_submodule_access` is deprecated and unused" _id = :explicit_imports_improper_qualified_accesses_require_submodule_access maxlog = 1
@@ -229,7 +229,7 @@ function improper_qualified_accesses(mod::Module, file=pathof(mod);
     end
     submodules = find_submodules(mod, file)
     file_analysis = Dict{String,FileAnalysis}()
-    fill_cache!(file_analysis, last.(submodules))
+    fill_cache!(file_analysis, last.(submodules), mod)
     return [submodule => improper_qualified_accesses_nonrecursive(submodule, path;
                                                                   file_analysis=file_analysis[path],
                                                                   skip,
