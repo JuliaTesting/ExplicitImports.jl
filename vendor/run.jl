@@ -1,12 +1,23 @@
 using PackageAnalyzer, UUIDs
 
-deps = [find_package("JuliaSyntax"; version=v"1.0.2"),
+function get_tree_hash(repo="JuliaLang/JuliaSyntax.jl", rev="46723f0")
+     return readchomp(`gh api "repos/$repo/commits/$rev" --jq '.commit.tree.sha'`)
+end
+
+deps = [PackageAnalyzer.Added(; name="JuliaSyntax",
+                              uuid=UUID("70703baa-626e-46a2-a12c-08ffd08c73b4"),
+                              path="",
+                              repo_url="https://github.com/JuliaLang/JuliaSyntax.jl",
+                              # get_tree_hash("JuliaLang/JuliaSyntax.jl", "46723f0")
+                              tree_hash="0d4b3dab95018bcf3925204475693d9f09dc45b8",
+                              subdir=""),
         find_package("AbstractTrees"; version=v"0.4.5"),
         PackageAnalyzer.Added(; name="JuliaLowering",
                               uuid=UUID("f3c80556-a63f-4383-b822-37d64f81a311"),
                               path="",
                               repo_url="https://github.com/mlechu/JuliaLowering.jl",
-                              tree_hash="2d3dfe83e9be4318c056ed9df2d3788f5723bb9d",
+                              # get_tree_hash("mlechu/JuliaLowering.jl", "fix-nightly")
+                              tree_hash="24fb8b102582c4ecefc43a4fd61a9b4e578ca04d",
                               subdir="")]
 
 for pkg in deps

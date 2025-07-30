@@ -352,11 +352,13 @@ function _convert_closures(ctx::ClosureConversionCtx, ex)
         @assert kind(ex[1]) == K"BindingId"
         binfo = lookup_binding(ctx, ex[1])
         if binfo.kind == :global
-            @ast ctx ex [
-                K"globaldecl"
-                ex[1]
-                _convert_closures(ctx, ex[2])
-            ]
+            @ast ctx ex [K"block"
+                # flisp has this, but our K"assert" handling is in a previous pass
+                # [K"assert" "toplevel_only"::K"Symbol" [K"inert" ex]]
+                [K"globaldecl"
+                    ex[1]
+                    _convert_closures(ctx, ex[2])]
+                "nothing"::K"core"]
         else
             makeleaf(ctx, ex, K"TOMBSTONE")
         end

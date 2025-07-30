@@ -44,7 +44,7 @@ function _find_scope_vars!(ctx, assignments, locals, destructured_args, globals,
         end
     elseif k == K"global"
         _insert_if_not_present!(globals, NameKey(ex[1]), ex)
-    elseif k == K"assign_const_if_global"
+    elseif k == K"assign_or_constdecl_if_global"
         # like v = val, except that if `v` turns out global(either implicitly or
         # by explicit `global`), it gains an implicit `const`
         _insert_if_not_present!(assignments, NameKey(ex[1]), ex)
@@ -565,15 +565,14 @@ function _resolve_scopes(ctx, ex::SyntaxTree)
             end
         end
         resolved
-    elseif k == K"assign_const_if_global"
+    elseif k == K"assign_or_constdecl_if_global"
         id = _resolve_scopes(ctx, ex[1])
         bk = lookup_binding(ctx, id).kind
-        if bk == :local && numchildren(ex) != 1
-            @ast ctx ex _resolve_scopes(ctx, [K"=" children(ex)...])
-        elseif bk != :local # TODO: should this be == :global?
-            @ast ctx ex _resolve_scopes(ctx, [K"constdecl" children(ex)...])
+        @assert numchildren(ex) === 2
+        if bk == :global
+            @ast ctx ex _resolve_scopes(ctx, [K"constdecl" ex[1] ex[2]])
         else
-            makeleaf(ctx, ex, K"TOMBSTONE")
+            @ast ctx ex _resolve_scopes(ctx, [K"=" ex[1] ex[2]])
         end
     else
         mapchildren(e->_resolve_scopes(ctx, e), ctx, ex)

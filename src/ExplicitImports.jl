@@ -1,6 +1,6 @@
 module ExplicitImports
 
-MUST_USE_JULIA_LOWERING::Bool = false
+MUST_USE_JULIA_LOWERING::Bool = true
 
 #! explicit-imports: off
 # We vendor some dependencies to avoid compatibility problems. We tell ExplicitImports to ignore

@@ -33,10 +33,10 @@ _include("syntax_macros.jl")
 
 _include("eval.jl")
 
-_include("hooks.jl")
-
 function __init__()
     _register_kinds()
 end
+
+_include("precompile.jl")
 
 end

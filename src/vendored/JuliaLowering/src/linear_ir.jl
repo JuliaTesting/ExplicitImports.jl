@@ -60,7 +60,7 @@ end
 Context for creating linear IR.
 
 One of these is created per lambda expression to flatten the body down to
-a sequence of statements (linear IR).
+a sequence of statements (linear IR), which eventually becomes one CodeInfo.
 """
 struct LinearIRContext{GraphType} <: AbstractLoweringContext
     graph::GraphType
@@ -332,7 +332,7 @@ function emit_assignment_or_setglobal(ctx, srcref, lhs, rhs, op=K"=")
     if binfo.kind == :global && op == K"="
         emit(ctx, @ast ctx srcref [
             K"call"
-            "setglobal!"::K"top"
+            "setglobal!"::K"core"
             binfo.mod::K"Value"
             binfo.name::K"Symbol"
             rhs
@@ -884,13 +884,12 @@ function compile(ctx::LinearIRContext, ex, needs_value, in_tail_pos)
         if numchildren(ex) == 1 || is_identifier_like(ex[2])
             emit(ctx, ex)
         else
-            rr = ssavar(ctx, ex[2])
-            emit(ctx, @ast ctx ex [K"=" rr ex[2]])
+            rr = emit_assign_tmp(ctx, ex[2])
             emit(ctx, @ast ctx ex [K"globaldecl" ex[1] rr])
         end
         ctx.is_toplevel_thunk && emit(ctx, makenode(ctx, ex, K"latestworld"))
     elseif k == K"latestworld"
-        emit(ctx, makeleaf(ctx, ex, K"latestworld"))
+        emit(ctx, ex)
     elseif k == K"latestworld_if_toplevel"
         ctx.is_toplevel_thunk && emit(ctx, makeleaf(ctx, ex, K"latestworld"))
     else

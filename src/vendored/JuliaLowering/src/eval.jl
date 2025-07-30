@@ -12,6 +12,18 @@ function macroexpand(mod::Module, ex)
     ex1
 end
 
+function codeinfo_has_image_globalref(@nospecialize(e))
+    if e isa GlobalRef
+        return 0x00 !== @ccall jl_object_in_image(e.mod::Any)::UInt8
+    elseif e isa Core.CodeInfo
+        return any(codeinfo_has_image_globalref, e.code)
+    elseif e isa Expr
+        return any(codeinfo_has_image_globalref, e.args)
+    else
+        return false
+    end
+end
+
 _CodeInfo_need_ver = v"1.12.0-DEV.512"
 if VERSION < _CodeInfo_need_ver
     function _CodeInfo(args...)
@@ -152,6 +164,8 @@ function to_code_info(ex, mod, funcname, slots)
 
     debuginfo = finish_ir_debug_info!(current_codelocs_stack)
 
+    has_image_globalref = any(codeinfo_has_image_globalref, stmts)
+
     # TODO: Set ssaflags based on call site annotations:
     # - @inbounds annotations
     # - call site @inline / @noinline
@@ -171,10 +185,6 @@ function to_code_info(ex, mod, funcname, slots)
     # TODO: Set based on Base.@assume_effects
     purity              = 0x0000
 
-    # TODO: Should we set these?
-    rettype             = Any
-    has_image_globalref = false
-
     # The following CodeInfo fields always get their default values for
     # uninferred code.
     ssavaluetypes      = length(stmts) # Why does the runtime code do this?
@@ -186,6 +196,7 @@ function to_code_info(ex, mod, funcname, slots)
     max_world           = typemax(Csize_t)
     isva                = false
     inlining_cost       = 0xffff
+    rettype             = Any
 
     _CodeInfo(
         stmts,
