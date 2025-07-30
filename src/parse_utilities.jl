@@ -48,13 +48,20 @@ function SyntaxNodeWrapper(file::AbstractString, in_mod::Module; bad_locations=S
     contents = String(take!(stripped))
     parsed = JuliaSyntax.parseall(JuliaLowering.SyntaxTree, contents; ignore_warnings=true)
 
-    # Perform lowering on the parse tree until scoping
-    ex = JuliaLowering.ensure_attributes(parsed; var_id=Int)
-    ctx1, ex_macroexpand = JuliaLowering.expand_forms_1(in_mod, ex)
-    ctx2, ex_desugar = JuliaLowering.expand_forms_2(ctx1, ex_macroexpand)
-    ctx3, ex_scoped = JuliaLowering.resolve_scopes(ctx2, ex_desugar)
+    scoped = parsed
+    ctx = nothing
+    try
+        scoped, ctx = lower_tree(parsed, in_mod)
+    catch e
+        @show in_mod
+        if MUST_USE_JULIA_LOWERING
+            rethrow()
+        else
+            @warn "JuliaLowering scope resolution error; may need newer Julia" exception=(e, catch_backtrace()) maxlog=1
+        end
+    end
 
-    return SyntaxNodeWrapper(ex_scoped, file, bad_locations, ctx3, in_mod)
+    return SyntaxNodeWrapper(scoped, file, bad_locations, ctx, in_mod)
 end
 
 function try_parse_wrapper(file::AbstractString, mod::Module; bad_locations)

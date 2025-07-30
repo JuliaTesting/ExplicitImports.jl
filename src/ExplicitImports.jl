@@ -1,5 +1,7 @@
 module ExplicitImports
 
+MUST_USE_JULIA_LOWERING::Bool = false
+
 #! explicit-imports: off
 # We vendor some dependencies to avoid compatibility problems. We tell ExplicitImports to ignore
 # these as we don't want it to recurse into vendored dependencies.
@@ -66,6 +68,7 @@ const STRICT_PRINTING_KWARG = """
 const STRICT_NONRECURSIVE_KWARG = """
 * `strict=true`: when `strict=true`, results will be `nothing` in the case that the analysis could not be performed accurately, due to e.g. dynamic `include` statements. When `strict=false`, results are returned in all cases, but may be inaccurate."""
 
+include("lower.jl")
 include("parse_utilities.jl")
 include("find_implicit_imports.jl")
 include("get_names_used.jl")
