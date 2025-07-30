@@ -13,7 +13,24 @@ using Compat # dep of test_mods.jl
 include("test_mods.jl")
 
 src = read("test_mods.jl", String)
-tree = TreeCursor(parseall(JuliaLowering.SyntaxTree, src; filename="tests_mods.jl"))
+tree = parseall(JuliaLowering.SyntaxTree, src; filename="tests_mods.jl")
+
+src = """
+module Foo129
+foo() = 3
+h(f) = 4
+h(f, f2) = 4
+module Bar
+using ..Foo129: foo, h
+bar() = h(foo)
+
+# we will test that the LHS foo is a function arg and the RHS ones are not
+bar2(x, foo) = h(foo, foo)
+end # Bar
+end # Foo129
+"""
+
+tree = parseall(JuliaLowering.SyntaxTree, src; filename="tests_mods.jl")
 
 cchildren(x) = collect(children(x))
 testmod1_code = cchildren(cchildren(tree)[2])[2]
@@ -41,9 +58,9 @@ ex = ensure_attributes(ex; var_id=Int)
 
 in_mod = TestMod1
 # in_mod=Main
-ctx1, ex_macroexpand = JuliaLowering.expand_forms_1(in_mod, ex)
-ctx2, ex_desugar = JuliaLowering.expand_forms_2(ctx1, ex_macroexpand)
-ctx3, ex_scoped = JuliaLowering.resolve_scopes(ctx2, ex_desugar)
+ctx1, ex_macroexpand = JuliaLowering.expand_forms_1(in_mod, ex);
+ctx2, ex_desugar = JuliaLowering.expand_forms_2(ctx1, ex_macroexpand);
+ctx3, ex_scoped = JuliaLowering.resolve_scopes(ctx2, ex_desugar);
 
 leaf = collect(Leaves(ex_scoped))[end - 3]
 showprov(leaf)
@@ -84,3 +101,10 @@ end
 leaf = collect(Leaves(TreeCursor(ex_scoped)))[end-3]
 nodevalue(leaf)
 nodevalue(AbstractTrees.parent(leaf))
+
+
+##
+using ExplicitImports.Vendored.JuliaLowering, ExplicitImports.Vendored.JuliaSyntax
+
+src = read("issue_120.jl", String)
+tree = JuliaSyntax.parseall(JuliaLowering.SyntaxTree, src; filename="issue_120.jl")

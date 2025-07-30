@@ -363,8 +363,8 @@ function analyze_name(leaf)
     is_global = false
     node = leaf
     idx = 1
-    @show try_get_val(nodevalue(leaf))
-    @show kind(nodevalue(get_parent(leaf, 1)))
+    # @show try_get_val(nodevalue(leaf))
+    # @show kind(nodevalue(get_parent(leaf, 1)))
     push!(DEBUG, leaf)
     prev_node = nothing
     while true

@@ -138,9 +138,9 @@ end
 js_children(n::Union{TreeCursor,SyntaxNodeWrapper}) = js_children(js_node(n))
 
 # https://github.com/JuliaLang/JuliaSyntax.jl/issues/557
-js_children(n::JuliaSyntax.SyntaxNode) = something(JuliaSyntax.children(n), ())
-
-js_children(n::JuliaLowering.SyntaxTree) = something(JuliaSyntax.children(n), ())
+function js_children(n::Union{JuliaSyntax.SyntaxNode,JuliaLowering.SyntaxTree})
+    return something(JuliaSyntax.children(n), ())
+end
 
 js_node(n::SyntaxNodeWrapper) = n.node
 js_node(n::TreeCursor) = js_node(nodevalue(n))
@@ -164,7 +164,8 @@ end
 try_get_val(n::JuliaSyntax.SyntaxNode) = n.val
 try_get_val(n::Union{TreeCursor,SyntaxNodeWrapper}) = try_get_val(js_node(n))
 
-function has_flags(n::Union{JuliaSyntax.SyntaxNode,JuliaSyntax.GreenNode,
+function has_flags(n::Union{JuliaSyntax.SyntaxNode,
+                            JuliaSyntax.GreenNode,
                             JuliaLowering.SyntaxTree}, args...)
     return JuliaSyntax.has_flags(n, args...)
 end
@@ -219,9 +220,21 @@ end
 # these would be piracy, but we've vendored AbstractTrees so it's technically fine
 function Base.show(io::IO, cursor::AbstractTrees.ImplicitCursor)
     print(io, "ImplicitCursor: ")
-    show(io, nodevalue(cursor))
+    return show(io, nodevalue(cursor))
 end
 function Base.show(io::IO, mime::MIME"text/plain", cursor::AbstractTrees.ImplicitCursor)
     print(io, "ImplicitCursor: ")
-    show(io, mime, nodevalue(cursor))
+    return show(io, mime, nodevalue(cursor))
+end
+
+function Base.show(io::IO, mime::MIME"text/plain",
+                   ctx::JuliaLowering.VariableAnalysisContext)
+    println(io,
+            """VariableAnalysisContext with module $(ctx.mod) and
+            - $(length(ctx.bindings.info)) bindings
+            - $(length(ctx.closure_bindings)) closure bindings
+            - $(length(ctx.closure_bindings)) lambda bindings
+            - $(length(ctx.method_def_stack))-long method def stack
+            and graph:""")
+    return show(io, mime, ctx.graph)
 end

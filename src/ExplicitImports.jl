@@ -26,6 +26,9 @@ using Markdown: Markdown
 using PrecompileTools: @setup_workload, @compile_workload
 using Pkg: Pkg
 
+# debug
+parsefile
+
 # we'll borrow their `@_public` macro; if this goes away, we can get our own
 JuliaSyntax.@_public ignore_submodules
 
