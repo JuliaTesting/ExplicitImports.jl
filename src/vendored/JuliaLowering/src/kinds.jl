@@ -7,6 +7,9 @@ function _register_kinds()
         # expansion, and known to lowering. These are part of the AST API but
         # without having surface syntax.
         "BEGIN_EXTENSION_KINDS"
+            # Used for converting `esc()`'d expressions arising from old macro
+            # invocations during macro expansion
+            "escape"
             # atomic fields or accesses (see `@atomic`)
             "atomic"
             # Flag for @generated parts of a functon

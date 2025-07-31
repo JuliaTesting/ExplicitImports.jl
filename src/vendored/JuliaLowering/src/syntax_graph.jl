@@ -422,7 +422,7 @@ attrsummary(name, value::Number) = "$name=$value"
 function _value_string(ex)
     k = kind(ex)
     str = k == K"Identifier" || k == K"MacroName" || is_operator(k) ? ex.name_val :
-          k == K"Placeholder" ? ex.name_val :
+          k == K"Placeholder" ? ex.name_val           :
           k == K"SSAValue"    ? "%"                   :
           k == K"BindingId"   ? "#"                   :
           k == K"label"       ? "label"               :
@@ -540,7 +540,12 @@ JuliaSyntax.byte_range(ex::SyntaxTree) = byte_range(sourceref(ex))
 function JuliaSyntax._expr_leaf_val(ex::SyntaxTree)
     name = get(ex, :name_val, nothing)
     if !isnothing(name)
-        Symbol(name)
+        n = Symbol(name)
+        if hasattr(ex, :scope_layer)
+            Expr(:scope_layer, n, ex.scope_layer)
+        else
+            n
+        end
     else
         ex.value
     end
