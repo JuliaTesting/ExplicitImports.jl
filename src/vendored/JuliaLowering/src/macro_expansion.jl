@@ -145,8 +145,16 @@ function expand_macro(ctx, ex)
     end
     macro_invocation_world = Base.get_world_counter()
     expanded = try
-        # TODO: Allow invoking old-style macros for compat
-        invokelatest(macfunc, macro_args...)
+        if applicable(macfunc, macro_args...)
+            invokelatest(macfunc, macro_args...)
+        else
+            # try old-style macro
+            args = [Expr(x) for x in macro_args[2:end]]
+            line, _ = source_location(macname)
+            file = filename(macname)
+            line_number_node = Base.LineNumberNode(line, file)
+            invokelatest(macfunc, line_number_node, ctx.current_layer.mod, args...)
+        end
     catch exc
         if exc isa MacroExpansionError
             # Add context to the error.
@@ -237,7 +245,7 @@ function expand_forms_1(ctx::MacroExpansionContext, ex::SyntaxTree)
         @chk numchildren(ex) == 1
         # TODO: Upstream should set a general flag for detecting parenthesized
         # expressions so we don't need to dig into `green_tree` here. Ugh!
-        plain_symbol = has_flags(ex, JuliaSyntax.COLON_QUOTE) && 
+        plain_symbol = has_flags(ex, JuliaSyntax.COLON_QUOTE) &&
                        kind(ex[1]) == K"Identifier" &&
                        (sr = sourceref(ex); sr isa SourceRef && kind(sr.green_tree[2]) != K"parens")
         if plain_symbol
@@ -337,4 +345,3 @@ function expand_forms_1(mod::Module, ex::SyntaxTree)
                                  ctx.current_layer)
     return ctx2, reparent(ctx2, ex2)
 end
-

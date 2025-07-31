@@ -4,9 +4,9 @@ using .JuliaSyntax: parseall, numchildren
 using .JuliaLowering: SyntaxTree, MacroExpansionContext, DesugaringContext,
                       ensure_attributes, expand_forms_1, expand_forms_2, resolve_scopes,
                       reparent, ScopeLayer,
-                      Bindings, IdTag, LayerId, LambdaBindings, eval_module,
+                      IdTag, LayerId, LambdaBindings, eval_module,
                       syntax_graph, makenode, is_leaf, @K_str,
-                      Bindings
+                      Bindings, CompileHints
 
 """
     lower_tree(tree, into_mod=Main) -> scoped_toplevel
@@ -21,7 +21,8 @@ function lower_tree(tree::SyntaxTree, into_mod::Module=Main)
                               var_id=Int,
                               scope_layer=Int,
                               lambda_bindings=LambdaBindings,
-                              bindings=Bindings)
+                              bindings=Bindings,
+                              meta=CompileHints)
 
     layers = [ScopeLayer(1, into_mod, false)]
     bindings = Bindings()

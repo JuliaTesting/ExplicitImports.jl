@@ -15,9 +15,8 @@ deps = [PackageAnalyzer.Added(; name="JuliaSyntax",
         PackageAnalyzer.Added(; name="JuliaLowering",
                               uuid=UUID("f3c80556-a63f-4383-b822-37d64f81a311"),
                               path="",
-                              repo_url="https://github.com/mlechu/JuliaLowering.jl",
-                              # get_tree_hash("mlechu/JuliaLowering.jl", "fix-nightly")
-                              tree_hash="24fb8b102582c4ecefc43a4fd61a9b4e578ca04d",
+                              repo_url="https://github.com/ericphanson/JuliaLowering.jl",
+                              tree_hash = get_tree_hash("mlechu/JuliaLowering.jl", "eph/trunk"),
                               subdir="")]
 
 for pkg in deps
