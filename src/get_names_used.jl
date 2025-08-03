@@ -13,7 +13,7 @@ Base.@kwdef struct PerUsageInfo
     function_arg::Bool
     is_assignment::Bool
     module_path::Vector{Symbol}
-    scope_path::Vector{JuliaSyntax.SyntaxNode}
+    scope_path::Vector{JuliaLowering.SyntaxTree}
     struct_field_or_type_param::Bool
     for_loop_index::Bool
     generator_index::Bool
@@ -345,11 +345,12 @@ function is_double_colon_LHS(leaf)
     return child_index(leaf) == 1
 end
 
+DEBUG = []
 # Here we use the magic of AbstractTrees' `TreeCursor` so we can start at
 # a leaf and follow the parents up to see what scopes our leaf is in.
 # TODO-someday- cleanup. This basically has two jobs: check is function arg etc, and figure out the scope/module path.
 # We could do these two things separately for more clarity.
-function analyze_name(leaf; debug=false)
+function analyze_name(leaf)
     # Ok, we have a "name". Let us work our way up and try to figure out if it is in local scope or not
     function_arg = is_function_definition_arg(leaf)
     struct_field_or_type_param = is_struct_type_param(leaf) || is_struct_field_name(leaf)
@@ -357,19 +358,20 @@ function analyze_name(leaf; debug=false)
     generator_index = is_generator_arg(leaf)
     catch_arg = is_catch_arg(leaf)
     module_path = Symbol[]
-    scope_path = JuliaSyntax.SyntaxNode[]
+    scope_path = JuliaLowering.SyntaxTree[]
     is_assignment = false
+    is_global = false
     node = leaf
     idx = 1
-
+    # @show try_get_val(nodevalue(leaf))
+    # @show kind(nodevalue(get_parent(leaf, 1)))
+    push!(DEBUG, leaf)
     prev_node = nothing
     while true
         # update our state
-        val = get_val(node)
         k = kind(node)
-        args = nodevalue(node).node.raw.children
+        args = children(nodevalue(node).node)
 
-        debug && println(val, ": ", k)
         # Constructs that start a new local scope. Note `let` & `macro` *arguments* are not explicitly supported/tested yet,
         # but we can at least keep track of scope properly.
         if k in
@@ -389,7 +391,7 @@ function analyze_name(leaf; debug=false)
                 return kind(arg.node) == K"Identifier"
             end
             if !isempty(ids)
-                push!(module_path, first(ids).node.val)
+                push!(module_path, get_val(first(ids).node))
             end
             push!(scope_path, nodevalue(node).node)
         end
@@ -417,17 +419,17 @@ function analyze_name(leaf; debug=false)
 end
 
 """
-    analyze_all_names(file)
+    analyze_all_names(file, in_mod::Module)
 
 Returns a tuple of two items:
 
 * `per_usage_info`: a table containing information about each name each time it was used
 * `untainted_modules`: a set containing modules found and analyzed successfully
 """
-function analyze_all_names(file)
+function analyze_all_names(file, in_mod::Module)
     # we don't use `try_parse_wrapper` here, since there's no recovery possible
     # (no other files we know about to look at)
-    tree = SyntaxNodeWrapper(file)
+    tree = SyntaxNodeWrapper(file, in_mod)
     # in local scope, a name refers to a global if it is read from before it is assigned to, OR if the global keyword is used
     # a name refers to a local otherwise
     # so we need to traverse the tree, keeping track of state like: which scope are we in, and for each name, in each scope, has it been used
@@ -444,7 +446,7 @@ function analyze_all_names(file)
                                  function_arg::Bool,
                                  is_assignment::Bool,
                                  module_path::Vector{Symbol},
-                                 scope_path::Vector{JuliaSyntax.SyntaxNode},
+                                 scope_path::Vector{JuliaLowering.SyntaxTree},
                                  struct_field_or_type_param::Bool,
                                  for_loop_index::Bool,
                                  generator_index::Bool,
@@ -495,6 +497,7 @@ function analyze_all_names(file)
         end
         ret = analyze_name(leaf)
         push!(seen_modules, ret.module_path)
+        # @show name, qualified_by, import_type, explicitly_imported_by, location, ret
         push!(per_usage_info,
               (; name, qualified_by, import_type, explicitly_imported_by, location, ret...))
     end
@@ -532,7 +535,7 @@ end
 # in JuliaSyntax 1.0. This is very slow and also not quite the semantics we want anyway.
 # Here, we wrap our nodes in a custom type that only compares object identity.
 struct SyntaxNodeList
-    nodes::Vector{JuliaSyntax.SyntaxNode}
+    nodes::Vector{JuliaLowering.SyntaxTree}
 end
 
 function Base.:(==)(a::SyntaxNodeList, b::SyntaxNodeList)
@@ -648,7 +651,7 @@ function setdiff_no_metadata(set1, set2)
 end
 
 """
-    get_names_used(file) -> FileAnalysis
+    get_names_used(file, in_mod::Module) -> FileAnalysis
 
 Figures out which global names are used in `file`, and what modules they are used within.
 
@@ -656,10 +659,10 @@ Traverses static `include` statements.
 
 Returns a `FileAnalysis` object.
 """
-function get_names_used(file)
+function get_names_used(file, in_mod::Module)
     check_file(file)
     # Here we get 1 row per name per usage
-    per_usage_info, untainted_modules = analyze_all_names(file)
+    per_usage_info, untainted_modules = analyze_all_names(file, in_mod)
 
     names_used_for_global_bindings = get_global_names(per_usage_info)
     explicit_imports = get_explicit_imports(per_usage_info)

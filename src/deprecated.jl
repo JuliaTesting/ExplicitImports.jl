@@ -3,7 +3,7 @@ function stale_explicit_imports(mod::Module, file=pathof(mod); strict=true)
     @warn "[stale_explicit_imports] deprecated in favor of `improper_explicit_imports`" _id = :explicit_imports_stale_explicit_imports maxlog = 1
     submodules = find_submodules(mod, file)
     file_analysis = Dict{String,FileAnalysis}()
-    fill_cache!(file_analysis, last.(submodules))
+    fill_cache!(file_analysis, last.(submodules), mod)
     return [submodule => stale_explicit_imports_nonrecursive(submodule, path;
                                                              file_analysis=file_analysis[path],
                                                              strict)
@@ -13,7 +13,7 @@ end
 function stale_explicit_imports_nonrecursive(mod::Module, file=pathof(mod);
                                              strict=true,
                                              # private undocumented kwarg for hoisting this analysis
-                                             file_analysis=get_names_used(file))
+                                             file_analysis=get_names_used(file, mod))
     check_file(file)
     @warn "[stale_explicit_imports_nonrecursive] deprecated in favor of `improper_explicit_imports_nonrecursive`" _id = :explicit_imports_stale_explicit_imports maxlog = 1
 

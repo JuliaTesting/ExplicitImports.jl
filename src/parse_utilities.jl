@@ -8,15 +8,28 @@
 # We define a new tree that wraps a `SyntaxNode`.
 # For this tree, we we add an `AbstractTrees` `children` method to traverse `include` statements to span our tree across files.
 struct SyntaxNodeWrapper
-    node::JuliaSyntax.SyntaxNode
+    node::JuliaLowering.SyntaxTree
     file::String
     bad_locations::Set{String}
+    context::Any
+    in_mod::Module
+end
+
+function Base.show(io::IO, n::SyntaxNodeWrapper)
+    print(io, "SyntaxNodeWrapper: ")
+    show(io, n.node)
+end
+
+function Base.show(io::IO, mime::MIME"text/plain", n::SyntaxNodeWrapper)
+    print(io, "SyntaxNodeWrapper: ")
+    show(io, mime, n.node)
+    print(io, "File: ", n.file)
 end
 
 const OFF = "#! explicit-imports: off"
 const ON = "#! explicit-imports: on"
 
-function SyntaxNodeWrapper(file::AbstractString; bad_locations=Set{String}())
+function SyntaxNodeWrapper(file::AbstractString, in_mod::Module; bad_locations=Set{String}())
     stripped = IOBuffer()
     on = true
     for line in eachline(file; keep=true)
@@ -24,7 +37,7 @@ function SyntaxNodeWrapper(file::AbstractString; bad_locations=Set{String}())
             on = false
         end
 
-         if strip(line) == ON
+        if strip(line) == ON
             on = true
         end
 
@@ -33,13 +46,27 @@ function SyntaxNodeWrapper(file::AbstractString; bad_locations=Set{String}())
         end
     end
     contents = String(take!(stripped))
-    parsed = JuliaSyntax.parseall(JuliaSyntax.SyntaxNode, contents; ignore_warnings=true)
-    return SyntaxNodeWrapper(parsed, file, bad_locations)
+    parsed = JuliaSyntax.parseall(JuliaLowering.SyntaxTree, contents; ignore_warnings=true)
+
+    scoped = parsed
+    ctx = nothing
+    try
+        scoped, ctx = lower_tree(parsed, in_mod)
+    catch e
+        @show in_mod
+        if MUST_USE_JULIA_LOWERING
+            rethrow()
+        else
+            @warn "JuliaLowering scope resolution error; may need newer Julia" exception=(e, catch_backtrace()) maxlog=1
+        end
+    end
+
+    return SyntaxNodeWrapper(scoped, file, bad_locations, ctx, in_mod)
 end
 
-function try_parse_wrapper(file::AbstractString; bad_locations)
+function try_parse_wrapper(file::AbstractString, mod::Module; bad_locations)
     return try
-        SyntaxNodeWrapper(file; bad_locations)
+        SyntaxNodeWrapper(file, mod; bad_locations)
     catch e
         msg = "Error when parsing file. Skipping this file."
         @error msg file exception = (e, catch_backtrace())
@@ -71,8 +98,8 @@ function AbstractTrees.children(wrapper::SyntaxNodeWrapper)
     if JuliaSyntax.kind(node) == K"call"
         children = js_children(node)
         if length(children) == 2
-            f, arg = children::Vector{JuliaSyntax.SyntaxNode} # make JET happy
-            if f.val === :include
+            f, arg = children #::Vector{JuliaSyntax.SyntaxNode} # make JET happy
+            if try_get_val(f) === :include
                 location = location_str(wrapper)
                 if location in wrapper.bad_locations
                     return [SkippedFile(location)]
@@ -85,10 +112,11 @@ function AbstractTrees.children(wrapper::SyntaxNodeWrapper)
                     # if we have interpolation, this might not be a string
                     kind(c) == K"String" || @goto dynamic
                     # The children of a static include statement is the entire file being included
-                    new_file = joinpath(dirname(wrapper.file), c.val)
+                    # @show c typeof(c) propertynames(c)
+                    new_file = joinpath(dirname(wrapper.file), c.value)
                     if isfile(new_file)
                         # @debug "Recursing into `$new_file`" node wrapper.file
-                        new_wrapper = try_parse_wrapper(new_file; wrapper.bad_locations)
+                        new_wrapper = try_parse_wrapper(new_file, wrapper.in_mod; wrapper.bad_locations)
                         if new_wrapper === nothing
                             push!(wrapper.bad_locations, location)
                             return [SkippedFile(location)]
@@ -109,19 +137,23 @@ function AbstractTrees.children(wrapper::SyntaxNodeWrapper)
             end
         end
     end
-    return map(n -> SyntaxNodeWrapper(n, wrapper.file, wrapper.bad_locations),
+    return map(n -> SyntaxNodeWrapper(n, wrapper.file, wrapper.bad_locations,
+                                      wrapper.context, wrapper.in_mod),
                js_children(node))
 end
 
 js_children(n::Union{TreeCursor,SyntaxNodeWrapper}) = js_children(js_node(n))
 
 # https://github.com/JuliaLang/JuliaSyntax.jl/issues/557
-js_children(n::Union{JuliaSyntax.SyntaxNode}) = something(JuliaSyntax.children(n), ())
+function js_children(n::Union{JuliaSyntax.SyntaxNode,JuliaLowering.SyntaxTree})
+    return something(JuliaSyntax.children(n), ())
+end
 
 js_node(n::SyntaxNodeWrapper) = n.node
 js_node(n::TreeCursor) = js_node(nodevalue(n))
 
-function kind(n::Union{JuliaSyntax.SyntaxNode,JuliaSyntax.GreenNode,JuliaSyntax.SyntaxHead})
+function kind(n::Union{JuliaSyntax.SyntaxNode,JuliaSyntax.GreenNode,JuliaSyntax.SyntaxHead,
+                       JuliaLowering.SyntaxTree})
     return JuliaSyntax.kind(n)
 end
 kind(n::Union{TreeCursor,SyntaxNodeWrapper}) = kind(js_node(n))
@@ -129,10 +161,19 @@ kind(n::Union{TreeCursor,SyntaxNodeWrapper}) = kind(js_node(n))
 head(n::Union{JuliaSyntax.SyntaxNode,JuliaSyntax.GreenNode}) = JuliaSyntax.head(n)
 head(n::Union{TreeCursor,SyntaxNodeWrapper}) = head(js_node(n))
 
+get_val(n::JuliaLowering.SyntaxTree) = Symbol(n.name_val)
 get_val(n::JuliaSyntax.SyntaxNode) = n.val
 get_val(n::Union{TreeCursor,SyntaxNodeWrapper}) = get_val(js_node(n))
 
-function has_flags(n::Union{JuliaSyntax.SyntaxNode,JuliaSyntax.GreenNode}, args...)
+function try_get_val(n::JuliaLowering.SyntaxTree)
+    return hasproperty(n, :name_val) ? Symbol(n.name_val) : nothing
+end
+try_get_val(n::JuliaSyntax.SyntaxNode) = n.val
+try_get_val(n::Union{TreeCursor,SyntaxNodeWrapper}) = try_get_val(js_node(n))
+
+function has_flags(n::Union{JuliaSyntax.SyntaxNode,
+                            JuliaSyntax.GreenNode,
+                            JuliaLowering.SyntaxTree}, args...)
     return JuliaSyntax.has_flags(n, args...)
 end
 has_flags(n::Union{TreeCursor,SyntaxNodeWrapper}, args...) = has_flags(js_node(n), args...)
@@ -156,7 +197,6 @@ function parents_match(n::TreeCursor, kinds::Tuple)
     kind_match(kind(p), k) || return false
     return parents_match(p, Base.tail(kinds))
 end
-
 
 function parent_kinds(n::TreeCursor)
     kinds = []
@@ -182,4 +222,26 @@ function has_parent(n, i=1)
         n === nothing && return false
     end
     return true
+end
+
+# these would be piracy, but we've vendored AbstractTrees so it's technically fine
+function Base.show(io::IO, cursor::AbstractTrees.ImplicitCursor)
+    print(io, "ImplicitCursor: ")
+    return show(io, nodevalue(cursor))
+end
+function Base.show(io::IO, mime::MIME"text/plain", cursor::AbstractTrees.ImplicitCursor)
+    print(io, "ImplicitCursor: ")
+    return show(io, mime, nodevalue(cursor))
+end
+
+function Base.show(io::IO, mime::MIME"text/plain",
+                   ctx::JuliaLowering.VariableAnalysisContext)
+    println(io,
+            """VariableAnalysisContext with module $(ctx.mod) and
+            - $(length(ctx.bindings.info)) bindings
+            - $(length(ctx.closure_bindings)) closure bindings
+            - $(length(ctx.closure_bindings)) lambda bindings
+            - $(length(ctx.method_def_stack))-long method def stack
+            and graph:""")
+    return show(io, mime, ctx.graph)
 end

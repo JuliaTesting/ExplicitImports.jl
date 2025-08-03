@@ -1,5 +1,7 @@
 module ExplicitImports
 
+MUST_USE_JULIA_LOWERING::Bool = true
+
 #! explicit-imports: off
 # We vendor some dependencies to avoid compatibility problems. We tell ExplicitImports to ignore
 # these as we don't want it to recurse into vendored dependencies.
@@ -7,8 +9,11 @@ module ExplicitImports
 module Vendored
 include(joinpath("vendored", "JuliaSyntax", "src", "JuliaSyntax.jl"))
 include(joinpath("vendored", "AbstractTrees", "src", "AbstractTrees.jl"))
+include(joinpath("vendored", "JuliaLowering", "src", "JuliaLowering.jl"))
 end
 #! explicit-imports: on
+
+using .Vendored.JuliaLowering
 
 using .Vendored.JuliaSyntax
 # suppress warning about Base.parse collision, even though parse is never used
@@ -23,8 +28,11 @@ using Markdown: Markdown
 using PrecompileTools: @setup_workload, @compile_workload
 using Pkg: Pkg
 
+# debug
+parsefile
+
 # we'll borrow their `@_public` macro; if this goes away, we can get our own
-JuliaSyntax.@_public ignore_submodules
+JuliaSyntax.@_public public ignore_submodules
 
 export print_explicit_imports, explicit_imports, check_no_implicit_imports,
        explicit_imports_nonrecursive
@@ -60,6 +68,7 @@ const STRICT_PRINTING_KWARG = """
 const STRICT_NONRECURSIVE_KWARG = """
 * `strict=true`: when `strict=true`, results will be `nothing` in the case that the analysis could not be performed accurately, due to e.g. dynamic `include` statements. When `strict=false`, results are returned in all cases, but may be inaccurate."""
 
+include("lower.jl")
 include("parse_utilities.jl")
 include("find_implicit_imports.jl")
 include("get_names_used.jl")
@@ -139,7 +148,7 @@ function explicit_imports(mod::Module, file=pathof(mod); skip=(mod, Base, Core),
     end
 
     submodules = find_submodules(mod, file)
-    fill_cache!(file_analysis, last.(submodules))
+    fill_cache!(file_analysis, last.(submodules), mod)
     return [submodule => explicit_imports_nonrecursive(submodule, path; skip, warn_stale,
                                                        file_analysis=file_analysis[path],
                                                        strict)
@@ -206,7 +215,7 @@ function explicit_imports_nonrecursive(mod::Module, file=pathof(mod);
                                        # deprecated
                                        warn_stale=nothing,
                                        # private undocumented kwarg for hoisting this analysis
-                                       file_analysis=get_names_used(file))
+                                       file_analysis=get_names_used(file, mod))
     check_file(file)
     if warn_stale !== nothing
         @warn "[explicit_imports_nonrecursive] keyword argument `warn_stale` is deprecated and does nothing" _id = :explicit_imports_explicit_imports_warn_stale maxlog = 1
@@ -402,10 +411,10 @@ function find_submodule_path(file, submodule)
     return path
 end
 
-function fill_cache!(file_analysis::Dict, files)
+function fill_cache!(file_analysis::Dict, files, mod)
     for _file in files
         if !haskey(file_analysis, _file)
-            file_analysis[_file] = get_names_used(_file)
+            file_analysis[_file] = get_names_used(_file, mod)
         end
     end
     return file_analysis
@@ -430,10 +439,10 @@ end
 
 include("precompile.jl")
 
-@setup_workload begin
-    @compile_workload begin
-        sprint(print_explicit_imports, ExplicitImports, @__FILE__; context=:color => true)
-    end
-end
+# @setup_workload begin
+#     @compile_workload begin
+#         sprint(print_explicit_imports, ExplicitImports, @__FILE__; context=:color => true)
+#     end
+# end
 
 end
