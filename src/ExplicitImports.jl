@@ -1,6 +1,4 @@
 module ExplicitImports
-const HAS_PUBLIC2 = Base.eval(quote Base.VERSION >=  v"1.11.0-DEV.469" end)
-
 
 MUST_USE_JULIA_LOWERING::Bool = true
 
@@ -33,7 +31,8 @@ using Pkg: Pkg
 # debug
 parsefile
 
-public ignore_submodules
+# we'll borrow their `@_public` macro; if this goes away, we can get our own
+JuliaSyntax.@_public public ignore_submodules
 
 export print_explicit_imports, explicit_imports, check_no_implicit_imports,
        explicit_imports_nonrecursive
