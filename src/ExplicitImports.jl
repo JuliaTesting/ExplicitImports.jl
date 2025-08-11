@@ -308,10 +308,6 @@ function filter_to_module(file_analysis::FileAnalysis, mod::Module)
     return (; needs_explicit_import, unnecessary_explicit_import, tainted, per_usage_info)
 end
 
-if VERSION < v"1.9-"
-    getglobal(mod, name) = getfield(mod, name)
-end
-
 # https://github.com/JuliaLang/julia/issues/53574
 function _parentmodule(mod)
     mod === Base && return Base
@@ -345,12 +341,8 @@ function _find_submodules(mod)
         is_submodule = try
             value = getglobal(mod, name)
             value isa Module && _parentmodule(value) == mod
-        catch e
-            if e isa UndefVarError
-                false
-            else
-                rethrow()
-            end
+        catch
+            false
         end
         if is_submodule
             submod = getglobal(mod, name)
@@ -359,8 +351,6 @@ function _find_submodules(mod)
             end
         end
     end
-    # pre-1.9, there are not package extensions
-    VERSION < v"1.9-" && return sub_modules
 
     # Add extensions to the set of submodules if present
     project_file = get_project_file(mod)
