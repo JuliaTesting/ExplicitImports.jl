@@ -413,9 +413,9 @@ function check_all_qualified_accesses_are_public(mod::Module, file=pathof(mod);
             end
         end
 
-        for from_mod in from
+        if !isempty(from)
             filter!(problematic) do row
-                return row.accessing_from == from_mod
+                return row.accessing_from in from
             end
         end
 
@@ -646,9 +646,9 @@ function check_all_explicit_imports_are_public(mod::Module, file=pathof(mod);
             end
         end
 
-        for from_mod in from
+        if !isempty(from)
             filter!(problematic) do row
-                return row.importing_from == from_mod
+                return row.importing_from in from
             end
         end
 
