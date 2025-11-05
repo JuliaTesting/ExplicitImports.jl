@@ -340,7 +340,7 @@ end
 """
     check_all_qualified_accesses_are_public(mod::Module, file=pathof(mod); ignore::Tuple=(),
                                             skip::$(TUPLE_MODULE_PAIRS)=(Base => Core,),
-                                            allow_internal_accesses=true)
+                                            from::Tuple=(), allow_internal_accesses=true)
 
 Checks that neither `mod` nor any of its submodules has qualified accesses to names which are non-public (i.e. not exported, nor declared public on Julia 1.11+)
 throwing an `NonPublicQualifiedAccessException` if so, and returning `nothing` otherwise.
@@ -372,6 +372,15 @@ that are allowed to be accessed from modules in which they are not public. For e
 
 would check there were no non-public qualified accesses besides that of the name `DataFrame`.
 
+Alternatively, the `from` keyword can be used to apply the public names check to only certain modules.
+For example,
+
+```julia
+@test check_all_qualified_accesses_are_public(MyPackage; from=(DataFrames,)) === nothing
+```
+
+would check only that qualified accesses from the `DataFrames` module are all public.
+
 ## non-fully-analyzable modules do not cause exceptions
 
 Note that if a module is not fully analyzable (e.g. it has dynamic `include` calls), qualified accesess of non-public names which could not be analyzed will be missed. Unlike [`check_no_stale_explicit_imports`](@ref) and [`check_no_implicit_imports`](@ref), this function will *not* throw an `UnanalyzableModuleException` in such cases.
@@ -380,6 +389,7 @@ See also: [`improper_qualified_accesses`](@ref) for programmatic access and the 
 """
 function check_all_qualified_accesses_are_public(mod::Module, file=pathof(mod);
                                                  skip::TUPLE_MODULE_PAIRS=(Base => Core,),
+                                                 from::Tuple=(),
                                                  ignore::Tuple=(),
                                                  allow_internal_accesses=true)
     check_file(file)
@@ -400,6 +410,12 @@ function check_all_qualified_accesses_are_public(mod::Module, file=pathof(mod);
         for (from, pub) in skip
             filter!(problematic) do row
                 return !(row.accessing_from == from && public_or_exported(pub, row.name))
+            end
+        end
+
+        for from_mod in from
+            filter!(problematic) do row
+                return row.accessing_from == from_mod
             end
         end
 
@@ -562,7 +578,7 @@ end
 """
     check_all_explicit_imports_are_public(mod::Module, file=pathof(mod); ignore::Tuple=(),
                                           skip::$(TUPLE_MODULE_PAIRS)=(Base => Core,),
-                                          allow_internal_imports=true)
+                                          from::Tuple=(), allow_internal_imports=true)
 
 Checks that neither `mod` nor any of its submodules has imports to names which are non-public (i.e. not exported, nor declared public on Julia 1.11+)
 throwing an `NonPublicExplicitImportsException` if so, and returning `nothing` otherwise.
@@ -594,6 +610,15 @@ that are allowed to be imported from modules in which they are not public. For e
 
 would check there were no non-public explicit imports besides that of the name `DataFrame`.
 
+Alternatively, the `from` keyword can be used to apply the public names check to only certain modules.
+For example,
+
+```julia
+@test check_all_explicit_imports_are_public(MyPackage; from=(DataFrames,)) === nothing
+```
+
+would check only that explicit imports from the `DataFrames` module are all public.
+
 ## non-fully-analyzable modules do not cause exceptions
 
 Note that if a module is not fully analyzable (e.g. it has dynamic `include` calls), explicit imports of non-public names which could not be analyzed will be missed. Unlike [`check_no_stale_explicit_imports`](@ref) and [`check_no_implicit_imports`](@ref), this function will *not* throw an `UnanalyzableModuleException` in such cases.
@@ -602,6 +627,7 @@ See also: [`improper_explicit_imports`](@ref) for programmatic access to such im
 """
 function check_all_explicit_imports_are_public(mod::Module, file=pathof(mod);
                                                skip::TUPLE_MODULE_PAIRS=(Base => Core,),
+                                               from::Tuple=(),
                                                ignore::Tuple=(),
                                                allow_internal_imports=true)
     check_file(file)
@@ -617,6 +643,12 @@ function check_all_explicit_imports_are_public(mod::Module, file=pathof(mod);
         for (from, pub) in skip
             filter!(problematic) do row
                 return !(row.importing_from == from && public_or_exported(pub, row.name))
+            end
+        end
+
+        for from_mod in from
+            filter!(problematic) do row
+                return row.importing_from == from_mod
             end
         end
 

@@ -379,6 +379,15 @@ include("issue_129.jl")
         end
         @test contains(str, "- `ABC` is not public in")
 
+        str = exception_string() do
+            return check_all_qualified_accesses_are_public(TestQualifiedAccess,
+                                                           "test_qualified_access.jl";
+                                                           from=(LinearAlgebra,),
+                                                           allow_internal_accesses=false)
+        end
+        @test !contains(str, "- `ABC` is not public in")
+        @test contains(str, "`map` is not public in `LinearAlgebra`")
+
         @test check_all_qualified_accesses_are_public(TestQualifiedAccess,
                                                       "test_qualified_access.jl";
                                                       ignore=(:X, :ABC, :map),
@@ -488,6 +497,9 @@ include("issue_129.jl")
                                                                                              "imports.jl";)
         @test check_all_explicit_imports_are_public(ModImports,
                                                     "imports.jl"; ignore=(:map, :_svd!)) ===
+              nothing
+        @test check_all_explicit_imports_are_public(ModImports,
+                                                    "imports.jl"; from=(DataFrames,)) ===
               nothing
     end
 
