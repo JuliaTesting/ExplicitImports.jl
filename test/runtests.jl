@@ -383,7 +383,7 @@ include("issue_129.jl")
             return check_all_qualified_accesses_are_public(TestQualifiedAccess,
                                                            "test_qualified_access.jl";
                                                            from=(LinearAlgebra,
-                                                                 TestQualifiedAccess.FooModule),
+                                                                 TestQualifiedAccess),
                                                            allow_internal_accesses=false)
         end
         @test contains(str, "- `ABC` is not public in")

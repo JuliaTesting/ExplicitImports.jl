@@ -372,14 +372,14 @@ that are allowed to be accessed from modules in which they are not public. For e
 
 would check there were no non-public qualified accesses besides that of the name `DataFrame`.
 
-Alternatively, the `from` keyword can be used to apply the public names check to only certain modules.
+Alternatively, the `from` keyword can be used to apply the public names check to only certain modules (and their submodules).
 For example,
 
 ```julia
 @test check_all_qualified_accesses_are_public(MyPackage; from=(DataFrames,)) === nothing
 ```
 
-would check only that qualified accesses from the `DataFrames` module are all public.
+would check only that qualified accesses from the `DataFrames` module (or its submodules) are all public.
 
 ## non-fully-analyzable modules do not cause exceptions
 
@@ -415,7 +415,9 @@ function check_all_qualified_accesses_are_public(mod::Module, file=pathof(mod);
 
         if !isempty(from)
             filter!(problematic) do row
-                return row.accessing_from in from
+                return any(from) do fmod
+                    has_ancestor(row.accessing_from, fmod)
+                end
             end
         end
 
@@ -610,14 +612,14 @@ that are allowed to be imported from modules in which they are not public. For e
 
 would check there were no non-public explicit imports besides that of the name `DataFrame`.
 
-Alternatively, the `from` keyword can be used to apply the public names check to only certain modules.
+Alternatively, the `from` keyword can be used to apply the public names check to only certain modules (and their submodules).
 For example,
 
 ```julia
 @test check_all_explicit_imports_are_public(MyPackage; from=(DataFrames,)) === nothing
 ```
 
-would check only that explicit imports from the `DataFrames` module are all public.
+would check only that explicit imports from the `DataFrames` module (or its submodules) are all public.
 
 ## non-fully-analyzable modules do not cause exceptions
 
@@ -648,7 +650,9 @@ function check_all_explicit_imports_are_public(mod::Module, file=pathof(mod);
 
         if !isempty(from)
             filter!(problematic) do row
-                return row.importing_from in from
+                return any(from) do fmod
+                    has_ancestor(row.importing_from, fmod)
+                end
             end
         end
 
