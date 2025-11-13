@@ -340,7 +340,7 @@ end
 """
     check_all_qualified_accesses_are_public(mod::Module, file=pathof(mod); ignore::Tuple=(),
                                             skip::$(TUPLE_MODULE_PAIRS)=(Base => Core,),
-                                            from::Tuple=(), allow_internal_accesses=true)
+                                            from=nothing, allow_internal_accesses=true)
 
 Checks that neither `mod` nor any of its submodules has qualified accesses to names which are non-public (i.e. not exported, nor declared public on Julia 1.11+)
 throwing an `NonPublicQualifiedAccessException` if so, and returning `nothing` otherwise.
@@ -389,7 +389,7 @@ See also: [`improper_qualified_accesses`](@ref) for programmatic access and the 
 """
 function check_all_qualified_accesses_are_public(mod::Module, file=pathof(mod);
                                                  skip::TUPLE_MODULE_PAIRS=(Base => Core,),
-                                                 from::Tuple=(),
+                                                 from=nothing,
                                                  ignore::Tuple=(),
                                                  allow_internal_accesses=true)
     check_file(file)
@@ -413,7 +413,7 @@ function check_all_qualified_accesses_are_public(mod::Module, file=pathof(mod);
             end
         end
 
-        if !isempty(from)
+        if !isnothing(from)
             filter!(problematic) do row
                 return any(from) do fmod
                     has_ancestor(row.accessing_from, fmod)
@@ -580,7 +580,7 @@ end
 """
     check_all_explicit_imports_are_public(mod::Module, file=pathof(mod); ignore::Tuple=(),
                                           skip::$(TUPLE_MODULE_PAIRS)=(Base => Core,),
-                                          from::Tuple=(), allow_internal_imports=true)
+                                          from=nothing, allow_internal_imports=true)
 
 Checks that neither `mod` nor any of its submodules has imports to names which are non-public (i.e. not exported, nor declared public on Julia 1.11+)
 throwing an `NonPublicExplicitImportsException` if so, and returning `nothing` otherwise.
@@ -629,7 +629,7 @@ See also: [`improper_explicit_imports`](@ref) for programmatic access to such im
 """
 function check_all_explicit_imports_are_public(mod::Module, file=pathof(mod);
                                                skip::TUPLE_MODULE_PAIRS=(Base => Core,),
-                                               from::Tuple=(),
+                                               from=nothing,
                                                ignore::Tuple=(),
                                                allow_internal_imports=true)
     check_file(file)
@@ -648,7 +648,7 @@ function check_all_explicit_imports_are_public(mod::Module, file=pathof(mod);
             end
         end
 
-        if !isempty(from)
+        if !isnothing(from)
             filter!(problematic) do row
                 return any(from) do fmod
                     has_ancestor(row.importing_from, fmod)
