@@ -58,7 +58,7 @@ One fix, as the warning suggests, is to qualify the use `foo` by writing e.g. `X
 
 There are various takes on _how problematic_ this issue is, to what extent this occurs in practice, and to what extent it is worth mitigating. See [julia#42080](https://github.com/JuliaLang/julia/pull/42080) for some discussion on this.
 
-Personally, I don't think this is always a huge issue, and that it's basically fine for packages to use implicit imports if that is their preferred style and they understand the risk. But I do think this issue is somewhat a "hole" in the semver system as it applies to Julia packages, and I wanted to create some tooling to make it easier to mitigate the issue for package authors who would prefer to not rely on implicit imports.
+Personally, we don't think this is always a huge issue, and that it's basically fine for packages to use implicit imports if that is their preferred style and they understand the risk. But we do think this issue is somewhat a "hole" in the semver system as it applies to Julia packages, and we wanted to create some tooling to make it easier to mitigate the issue for package authors who would prefer to not rely on implicit imports.
 
 ## Example
 
@@ -344,7 +344,7 @@ for file in readdir(@__DIR__)
 end
 ```
 
-This is problematic for ExplicitImports.jl; unless we really use a full-blown interpreter (which I do think could be a viable strategy[^1]), we can't really execute this code to know what files are being included. Thus being unable to traverse dynamic includes is essentially an inherent limitation of the approach used in this package.
+This is problematic for ExplicitImports.jl; unless we really use a full-blown interpreter (which we do think could be a viable strategy[^1]), we can't really execute this code to know what files are being included. Thus being unable to traverse dynamic includes is essentially an inherent limitation of the approach used in this package.
 
 The consequence of missing files is that the any names used or imports made in those files are totally missed. Even if we did take a strategy like "scan the package `src` directory for Julia code, and analyze all those files", without understanding `includes`, we wouldn't understand which files belong to which modules, making this analysis useless.
 
@@ -378,6 +378,6 @@ This implementation relies on `Base.which` to introspect which module any given 
 
 In particular, this means it is hard to convert implicit imports to explicit as a formatting pass, for example.
 
-Given a running [language server](https://github.com/julia-vscode/LanguageServer.jl), however, I think it should be possible to query that for the information needed.
+Given a running [language server](https://github.com/julia-vscode/LanguageServer.jl), however, we think it should be possible to query that for the information needed.
 
 [^1]: An alternate implementation using an `AbstractInterpreter` (like JET does) might solve this issue (at the cost of increased complexity), and possibly get some handling of tricky scoping situations "for free".
