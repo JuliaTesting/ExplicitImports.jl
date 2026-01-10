@@ -130,4 +130,118 @@ end
         @test any(row -> row.analysis_code == ExplicitImports.InternalFunctionArg, eachrow(usages))
         @test all(row -> row.analysis_code != ExplicitImports.External, eachrow(usages))
     end
+
+    # Case 13: Prior positional argument used in default
+    @testset "Case 13: prior positional in default" begin
+        @test check_no_stale_explicit_imports(TestModDefault13, TEST_FILE) === nothing
+        usages = get_usages(:x, [:TestModDefault13])
+        nonarg = subset(usages, :function_arg => ByRow(!))
+        @test nrow(nonarg) >= 1
+        @test_broken all(row -> row.analysis_code != ExplicitImports.External,
+                         eachrow(nonarg)) # default should see prior positional
+    end
+
+    # Case 14: Current parameter not visible in its own default
+    @testset "Case 14: current param not visible" begin
+        @test check_no_stale_explicit_imports(TestModDefault14, TEST_FILE) === nothing
+        usages = get_usages(:x, [:TestModDefault14])
+        nonarg = subset(usages, :function_arg => ByRow(!))
+        @test nrow(nonarg) >= 1
+        @test any(row -> row.analysis_code == ExplicitImports.External, eachrow(nonarg))
+    end
+
+    # Case 15: Later positional parameter not visible in earlier default
+    @testset "Case 15: later positional not visible" begin
+        @test check_no_stale_explicit_imports(TestModDefault15, TEST_FILE) === nothing
+        usages = get_usages(:y, [:TestModDefault15])
+        nonarg = subset(usages, :function_arg => ByRow(!))
+        @test nrow(nonarg) >= 1
+        @test any(row -> row.analysis_code == ExplicitImports.External, eachrow(nonarg))
+    end
+
+    # Case 16: Keyword default can see positional parameter
+    @testset "Case 16: keyword sees positional" begin
+        @test check_no_stale_explicit_imports(TestModDefault16, TEST_FILE) === nothing
+        usages = get_usages(:x, [:TestModDefault16])
+        nonarg = subset(usages, :function_arg => ByRow(!))
+        @test nrow(nonarg) >= 1
+        @test_broken all(row -> row.analysis_code != ExplicitImports.External,
+                         eachrow(nonarg)) # keyword default should see positional
+    end
+
+    # Case 17: Keyword default can see earlier keyword
+    @testset "Case 17: keyword sees earlier keyword" begin
+        @test check_no_stale_explicit_imports(TestModDefault17, TEST_FILE) === nothing
+        usages = get_usages(:x, [:TestModDefault17])
+        nonarg = subset(usages, :function_arg => ByRow(!))
+        @test nrow(nonarg) >= 1
+        @test_broken all(row -> row.analysis_code != ExplicitImports.External,
+                         eachrow(nonarg)) # keyword default should see earlier keyword
+    end
+
+    # Case 18: Keyword default cannot see later keyword
+    @testset "Case 18: keyword cannot see later keyword" begin
+        @test check_no_stale_explicit_imports(TestModDefault18, TEST_FILE) === nothing
+        usages = get_usages(:x, [:TestModDefault18])
+        nonarg = subset(usages, :function_arg => ByRow(!))
+        @test nrow(nonarg) >= 1
+        @test any(row -> row.analysis_code == ExplicitImports.External, eachrow(nonarg))
+    end
+
+    # Case 19: Positional default cannot see keyword
+    @testset "Case 19: positional cannot see keyword" begin
+        @test check_no_stale_explicit_imports(TestModDefault19, TEST_FILE) === nothing
+        usages = get_usages(:x, [:TestModDefault19])
+        nonarg = subset(usages, :function_arg => ByRow(!))
+        @test nrow(nonarg) >= 1
+        @test any(row -> row.analysis_code == ExplicitImports.External, eachrow(nonarg))
+    end
+
+    # Case 20: Destructured positional bindings not visible in positional default
+    @testset "Case 20: destructured positional not visible" begin
+        @test check_no_stale_explicit_imports(TestModDefault20, TEST_FILE) === nothing
+        usages = get_usages(:a, [:TestModDefault20])
+        nonarg = subset(usages, :function_arg => ByRow(!))
+        @test nrow(nonarg) >= 1
+        @test any(row -> row.analysis_code == ExplicitImports.External, eachrow(nonarg))
+    end
+
+    # Case 21: Destructured positional bindings not visible in keyword default
+    @testset "Case 21: destructured positional not visible for keyword" begin
+        @test check_no_stale_explicit_imports(TestModDefault21, TEST_FILE) === nothing
+        usages = get_usages(:a, [:TestModDefault21])
+        nonarg = subset(usages, :function_arg => ByRow(!))
+        @test nrow(nonarg) >= 1
+        @test any(row -> row.analysis_code == ExplicitImports.External, eachrow(nonarg))
+    end
+
+    # Case 22: Typed prior positional parameter visible in later default
+    @testset "Case 22: typed prior positional visible" begin
+        @test check_no_stale_explicit_imports(TestModDefault22, TEST_FILE) === nothing
+        usages = get_usages(:x, [:TestModDefault22])
+        nonarg = subset(usages, :function_arg => ByRow(!))
+        @test nrow(nonarg) >= 1
+        @test_broken all(row -> row.analysis_code != ExplicitImports.External,
+                         eachrow(nonarg)) # typed prior positional should be visible
+    end
+
+    # Case 23: Nested function literal inside default sees prior parameter
+    @testset "Case 23: nested function literal in default" begin
+        @test check_no_stale_explicit_imports(TestModDefault23, TEST_FILE) === nothing
+        usages = get_usages(:x, [:TestModDefault23])
+        nonarg = subset(usages, :function_arg => ByRow(!))
+        @test nrow(nonarg) >= 1
+        @test_broken all(row -> row.analysis_code != ExplicitImports.External,
+                         eachrow(nonarg)) # nested literal should inherit default scope
+    end
+
+    # Case 24: Varargs positional binding visible to keyword default
+    @testset "Case 24: varargs visible to keyword default" begin
+        @test check_no_stale_explicit_imports(TestModDefault24, TEST_FILE) === nothing
+        usages = get_usages(:x, [:TestModDefault24])
+        nonarg = subset(usages, :function_arg => ByRow(!))
+        @test nrow(nonarg) >= 1
+        @test_broken all(row -> row.analysis_code != ExplicitImports.External,
+                         eachrow(nonarg)) # keyword default should see varargs
+    end
 end

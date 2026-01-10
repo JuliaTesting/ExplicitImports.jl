@@ -113,3 +113,87 @@ end # TestModDefault11
 module TestModDefault12
 const f = x -> (a = x)
 end # TestModDefault12
+
+# Case 13: Prior positional argument used in default
+module TestModDefault13
+function f(x, y = x)
+    return y
+end
+end # TestModDefault13
+
+# Case 14: Current parameter not visible in its own default
+module TestModDefault14
+function f(x = x)
+    return 1
+end
+end # TestModDefault14
+
+# Case 15: Later positional parameter not visible in earlier default
+module TestModDefault15
+function f(x = y, y = 1)
+    return x
+end
+end # TestModDefault15
+
+# Case 16: Keyword default can see positional parameter
+module TestModDefault16
+function f(x; y = x)
+    return y
+end
+end # TestModDefault16
+
+# Case 17: Keyword default can see earlier keyword
+module TestModDefault17
+function f(; x = 1, y = x)
+    return y
+end
+end # TestModDefault17
+
+# Case 18: Keyword default cannot see later keyword
+module TestModDefault18
+function f(; y = x, x = 1)
+    return y
+end
+end # TestModDefault18
+
+# Case 19: Positional default cannot see keyword
+module TestModDefault19
+function f(y = x; x = 1)
+    return y
+end
+end # TestModDefault19
+
+# Case 20: Destructured positional bindings not visible in positional default
+module TestModDefault20
+function f((a, b), y = a)
+    return y
+end
+end # TestModDefault20
+
+# Case 21: Destructured positional bindings not visible in keyword default
+module TestModDefault21
+function f((a, b); y = a)
+    return y
+end
+end # TestModDefault21
+
+# Case 22: Typed prior positional parameter visible in later default
+module TestModDefault22
+function f(x::Int = 7, y = x)
+    return y
+end
+end # TestModDefault22
+
+# Case 23: Nested function literal inside default sees prior parameter
+module TestModDefault23
+function f(x, y = (() -> x)())
+    return y
+end
+end # TestModDefault23
+
+# Case 24: Varargs positional binding visible to keyword default
+module TestModDefault24
+function f(x...; y = x)
+    return y
+end
+end # TestModDefault24
