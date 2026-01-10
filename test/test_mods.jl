@@ -234,12 +234,3 @@ using Reexport
 
 end # TestMod15
 
-# https://github.com/JuliaTesting/ExplicitImports.jl/issues/120
-module TestMod16
-using Base: wrap_string
-
-function f(wrap_string = wrap_string("foo", UInt32(1)))
-    print(wrap_string)
-end
-
-end # TestMod16

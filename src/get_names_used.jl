@@ -442,7 +442,7 @@ end
 
 # Check if a leaf is within a default parameter value expression
 # Default parameter values are evaluated in the outer scope, not the function's scope
-function is_in_default_parameter_value(leaf)
+function is_in_default_parameter_value(leaf; debug=false)
     node = leaf
     # Walk up the tree looking for a `=` node that's part of a function parameter
     for i in 1:100  # limit depth to avoid infinite loops
@@ -454,22 +454,38 @@ function is_in_default_parameter_value(leaf)
             @warn "is_in_default_parameter_value reached recursion limit" leaf
         end
 
+        debug && println("  Step $i: kind = $k")
+
         # If we found a `=` node, check if it's a default parameter
         if k == K"="
             # Check if this `=` is part of a function signature
             # It should be inside a call/tuple/parameters that's part of a function
             if parents_match(node, (K"call",)) && call_is_func_def(parent(node))
+                # Regular function with default: f(x = default)
                 # Make sure the original leaf is on the RHS of the `=` (the default value)
-                # We do this by checking if the leaf is NOT the first child of the `=`
+                debug && println("  -> Matched regular function default")
                 return !is_ancestor_first_child_of(leaf, node)
-            elseif parents_match(node, (K"tuple",)) || parents_match(node, (K"parameters",))
-                # Check if this tuple/parameters is part of a function definition
+            elseif parents_match(node, (K"tuple",))
+                # Arrow function with default: (x = default) -> body
+                # The tuple should be the first child of ->
                 parent_node = parent(node)
+                debug && println("  -> Matched tuple parent, checking for ->")
+                debug && println("     has_parent(parent_node) = $(has_parent(parent_node))")
                 if has_parent(parent_node)
-                    grandparent = parent(parent_node)
-                    if kind(grandparent) in (K"function", K"->")
-                        return !is_ancestor_first_child_of(leaf, node)
-                    elseif kind(parent_node) == K"call" && call_is_func_def(parent_node)
+                    debug && println("     kind(parent(parent_node)) = $(kind(parent(parent_node)))")
+                end
+                if has_parent(parent_node) && kind(parent(parent_node)) == K"->"
+                    debug && println("  -> Matched arrow function default")
+                    return !is_ancestor_first_child_of(leaf, node)
+                end
+            elseif parents_match(node, (K"parameters",))
+                # Keyword argument with default: f(; x = default) or f(a; x = default)
+                # Structure: = -> parameters -> call -> function
+                parent_node = parent(node)  # parameters
+                if has_parent(parent_node)
+                    call_node = parent(parent_node)  # call
+                    if kind(call_node) == K"call" && call_is_func_def(call_node)
+                        debug && println("  -> Matched keyword argument default")
                         return !is_ancestor_first_child_of(leaf, node)
                     end
                 end
@@ -478,6 +494,7 @@ function is_in_default_parameter_value(leaf)
 
         # Stop if we've reached a scope boundary (function, module, etc.)
         if k in (K"function", K"module", K"macro")
+            debug && println("  -> Hit scope boundary, returning false")
             return false
         end
     end
@@ -491,21 +508,25 @@ function is_ancestor_first_child_of(descendant, ancestor)
     first_child = first(kids).node
 
     # Check if descendant is the first child or a descendant of it
+    # Walk up the tree from descendant; if we hit first_child before ancestor, return true
     node = descendant
-    while true
+    for _ in 1:100  # safety limit to avoid infinite loops
         if nodevalue(node).node === first_child
             return true
         end
         has_parent(node) || return false
         parent_node = parent(node)
+        # If parent is the first_child, then descendant is inside first_child's subtree
         if nodevalue(parent_node).node === first_child
-            return false
+            return true
         end
+        # If we reached the ancestor without going through first_child, descendant is not in first_child's subtree
         if nodevalue(parent_node).node === nodevalue(ancestor).node
             return false
         end
         node = parent_node
     end
+    return false
 end
 
 # Here we use the magic of AbstractTrees' `TreeCursor` so we can start at
@@ -540,12 +561,12 @@ function analyze_name(leaf; debug=false)
         # Constructs that start a new local scope. Note `let` & `macro` *arguments* are not explicitly supported/tested yet,
         # but we can at least keep track of scope properly.
         if k in
-           (K"let", K"for", K"function", K"struct", K"generator", K"while", K"macro", K"do") ||
+           (K"let", K"for", K"function", K"struct", K"generator", K"while", K"macro", K"do", K"->") ||
            # any child of `try` gets it's own individual scope (I think)
            (parents_match(node, (K"try",)))
-            # Skip adding function to scope if we're in a default parameter value
+            # Skip adding function/arrow to scope if we're in a default parameter value
             # (default values are evaluated in the outer scope)
-            if !(k == K"function" && in_default_param_value)
+            if !(k in (K"function", K"->") && in_default_param_value)
                 push!(scope_path, nodevalue(node).node)
             end
             # try to detect presence in RHS of inline function definition

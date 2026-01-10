@@ -86,6 +86,10 @@ include("issue_140.jl")
         include("deprecated.jl")
     end
 
+    @testset "Issue #120: default params" begin
+        include("test_default_params.jl")
+    end
+
     @testset "Extensions" begin
         submods = ExplicitImports.find_submodules(TestPkg)
         @test length(submods) == 2
