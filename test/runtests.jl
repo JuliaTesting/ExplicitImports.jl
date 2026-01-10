@@ -307,7 +307,7 @@ include("issue_140.jl")
 
         str = sprint(print_explicit_imports, TestQualifiedAccess,
                      "test_qualified_access.jl")
-        @test contains(str, "has 1 self-qualified access:\n\n    •  x was accessed as ")
+        @test contains(str, r"has 1 self-qualified access.*:\n\n\s*•\s+x was accessed as ")
 
         # check_all_qualified_accesses_via_owners
         ex = QualifiedAccessesFromNonOwnerException
