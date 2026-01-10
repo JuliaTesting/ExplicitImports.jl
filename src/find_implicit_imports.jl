@@ -1,20 +1,22 @@
 # https://discourse.julialang.org/t/how-to-get-all-variable-names-currently-accessible/108839/2
 modules_from_using(m::Module) = ccall(:jl_module_usings, Any, (Any,), m)
 
-function get_implicit_names(mod; skip=(mod, Base, Core))
+function get_implicit_names(mod)
     implicit_names = Dict{Symbol,Vector{Module}}()
-    for mod in modules_from_using(mod)
-        should_skip(mod; skip) && continue
-        for name in names(mod)
+    for m in modules_from_using(mod)
+        for name in names(m)
+            # Only include names that are actually exported, not just public.
+            # names() includes public names in Julia 1.11+, but `using` only brings in exported names.
+            Base.isexported(m, name) || continue
             v = get!(Vector{Module}, implicit_names, name)
-            push!(v, mod)
+            push!(v, m)
         end
     end
     return implicit_names
 end
 
 """
-    find_implicit_imports(mod::Module; skip=(mod, Base, Core))
+    find_implicit_imports(mod::Module)
 
 Given a module `mod`, returns a `Dict{Symbol, @NamedTuple{source::Module,exporters::Vector{Module}}}` showing
 names exist in `mod`'s namespace which are available due to implicit
@@ -26,8 +28,8 @@ is unavailable in the module, and hence the name will not be present in the dict
 
 This is powered by `Base.which`.
 """
-function find_implicit_imports(mod::Module; skip=(mod, Base, Core))
-    implicit_names = get_implicit_names(mod; skip)
+function find_implicit_imports(mod::Module)
+    implicit_names = get_implicit_names(mod)
 
     # Build a dictionary to lookup modules from names
     # we use `which` to figure out what the name resolves to in `mod`
@@ -68,12 +70,8 @@ function find_implicit_imports(mod::Module; skip=(mod, Base, Core))
                     push!(es, e)
                 end
             end
-            # if there are no matches (empty `es`), we will skip it
-            # This seemed to happen for `tryparse` in `Pkg.Types` which resolves to `Base.tryparse`
-            # and does not match `TOML.tryparse` which was the only candidate to compare to
-            # (since we want to skip `Base.tryparse` as `Base` is in `skip`)
-            # If there are no matches, such as in this case, we don't want to count it
-            # as an implicit import, since it is probably only from a module in `skip`.
+            # If there are no matches (empty `es`), we skip it.
+            # This can happen when the name resolves to a module not in the exporters list.
             if !isempty(es)
                 mod_lookup[name] = (; source, exporters=es)
             end

@@ -211,7 +211,7 @@ function explicit_imports_nonrecursive(mod::Module, file=pathof(mod);
     if warn_stale !== nothing
         @warn "[explicit_imports_nonrecursive] keyword argument `warn_stale` is deprecated and does nothing" _id = :explicit_imports_explicit_imports_warn_stale maxlog = 1
     end
-    all_implicit_imports = find_implicit_imports(mod; skip)
+    all_implicit_imports = find_implicit_imports(mod)
 
     needs_explicit_import, unnecessary_explicit_import, tainted = filter_to_module(file_analysis,
                                                                                    mod)
