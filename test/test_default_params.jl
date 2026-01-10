@@ -1,10 +1,15 @@
-# Quick test script for default parameter value scoping
-# Run with: julia --project -e 'using TestEnv; TestEnv.activate(); include("test/test_default_params.jl")'
+# Tests for default parameter value scoping
+#= Run directly with:
+julia --project -e '
+    using TestEnv; TestEnv.activate()
+    using ExplicitImports
+    using ExplicitImports: get_names_used, is_in_default_parameter_value, descends_from_first_child_of
+    using Test
+    using DataFrames
+    include("test/test_default_params.jl")'
 
-using ExplicitImports
-using ExplicitImports: get_names_used, is_in_default_parameter_value, descends_from_first_child_of
-using Test
-using DataFrames
+Or run all tests with `Pkg.test()`.
+=#
 
 # Include the test modules
 include("default_param_test_mods.jl")
