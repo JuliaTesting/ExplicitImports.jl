@@ -34,6 +34,7 @@ Base.@kwdef struct PerUsageInfo
     is_assignment::Bool
     module_path::Vector{Symbol}
     scope_path::Vector{JuliaSyntax.SyntaxNode}
+    struct_field_name::Bool
     struct_field_or_type_param::Bool
     for_loop_index::Bool
     generator_index::Bool
@@ -276,6 +277,12 @@ function is_struct_field_name(leaf)
     elseif parents_match(leaf, (K"::", K"=", K"block", K"struct"))
         # if we are in a `Base.@kwdef`, we may be on the LHS of an `=`
         return is_double_colon_LHS(leaf) && child_index(parent(leaf)) == 1
+    elseif parents_match(leaf, (K"=", K"block", K"struct"))
+        # untyped field with default value (`x = 1`) inside the struct block
+        return child_index(leaf) == 1
+    elseif parents_match(leaf, (K"block", K"struct"))
+        # untyped field declaration (`x`) inside the struct block
+        return true
     else
         return false
     end
@@ -442,10 +449,11 @@ end
 
 # Cache all leaf-specific facts up front so scope walking stays focused.
 function collect_leaf_flags(leaf)
+    struct_field_name = is_struct_field_name(leaf)
     return (;
             function_arg=is_function_definition_arg(leaf),
-            struct_field_or_type_param=is_struct_type_param(leaf) ||
-                                       is_struct_field_name(leaf) ||
+            struct_field_name,
+            struct_field_or_type_param=is_struct_type_param(leaf) || struct_field_name ||
                                        is_where_type_param(leaf) ||
                                        is_bound_by_where_clause(leaf),
             for_loop_index=is_for_arg(leaf),
@@ -723,6 +731,7 @@ function analyze_name(leaf; debug=false)
                     is_assignment=state.is_assignment,
                     module_path=state.module_path,
                     scope_path=state.scope_path,
+                    leaf_flags.struct_field_name,
                     leaf_flags.struct_field_or_type_param,
                     leaf_flags.for_loop_index,
                     leaf_flags.generator_index,
@@ -761,6 +770,7 @@ function analyze_all_names(file)
                                  is_assignment::Bool,
                                  module_path::Vector{Symbol},
                                  scope_path::Vector{JuliaSyntax.SyntaxNode},
+                                 struct_field_name::Bool,
                                  struct_field_or_type_param::Bool,
                                  for_loop_index::Bool,
                                  generator_index::Bool,
@@ -890,6 +900,16 @@ function analyze_per_usage_info(per_usage_info)
             return PerUsageInfo(; nt..., first_usage_in_scope=true,
                                 external_global_name=missing,
                                 analysis_code=IgnoredImportRHS)
+        end
+        if nt.struct_field_name
+            # Do not record struct field names in `seen`, otherwise they mask later
+            # references with the same identifier in the surrounding scope.
+            # Intentionally no `push!` to `seen` here.
+            # (issue #111)
+            external_global_name = false
+            return PerUsageInfo(; nt..., first_usage_in_scope=true,
+                                external_global_name,
+                                analysis_code=InternalStruct)
         end
 
         # At this point, we have an unqualified name, which is not the RHS of an import, and it is the first time we have seen this name in this scope.
