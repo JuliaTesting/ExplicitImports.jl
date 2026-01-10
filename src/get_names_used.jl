@@ -440,6 +440,21 @@ function is_double_colon_LHS(leaf)
     return child_index(leaf) == 1
 end
 
+# Check if a leaf identifier is the "field name" part of a named tuple field or kwarg
+# In `(; x=val)` or `func(; x=val)`, the `x` is just a field name, not a variable reference
+# This function returns true for the `x` in these cases
+# https://github.com/JuliaTesting/ExplicitImports.jl/issues/98
+function is_named_tuple_field_name(leaf)
+    kind(leaf) == K"Identifier" || return false
+    # Must be the LHS (first child) of an `=` node
+    has_parent(leaf) || return false
+    p = parent(leaf)
+    kind(p) == K"=" || return false
+    child_index(leaf) == 1 || return false
+    # Now check if that `=` is a named tuple field or kwarg assignment
+    return is_named_tuple_or_kwarg_assignment(p)
+end
+
 # Check if an `=` node is a named tuple field or function call kwarg
 # In these cases, the LHS doesn't create a local variable that shadows the RHS
 # Examples: (; x=x(...)) or func(; x=x(...))
@@ -709,6 +724,10 @@ function analyze_all_names(file)
         # but it will at least catch symbols (however keep qualified names)
         parents_match(leaf, (K"quote",)) && !parents_match(leaf, (K"quote", K".")) &&
             continue
+
+        # Skip named tuple field names - these are just keys, not variable references
+        # e.g., in `(; x=val)`, the `x` is a field name, not a usage of a variable `x`
+        is_named_tuple_field_name(leaf) && continue
 
         # Ok, we have a "name". We want to know if:
         # 1. it is being used in global scope
