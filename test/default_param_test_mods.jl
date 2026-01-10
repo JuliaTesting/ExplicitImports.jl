@@ -236,3 +236,33 @@ function test3()
     return (getindex=getindex([1,2,3], 3), other=1)
 end
 end # TestModIssue98
+
+# Issue #98 followups: kwarg name alone should not count as usage
+module TestModIssue98KwargOnly
+using Base: getindex
+
+function test()
+    return (; getindex=1)
+end
+
+function test2(f)
+    f(; getindex=2)
+end
+
+function test3()
+    return (getindex=3, other=1)
+end
+end # TestModIssue98KwargOnly
+
+# Issue #98 followups: kwarg shorthand should count as usage
+module TestModIssue98Shorthand
+using Base: getindex
+
+function test()
+    return (; getindex)
+end
+
+function test2(f)
+    f(; getindex)
+end
+end # TestModIssue98Shorthand
