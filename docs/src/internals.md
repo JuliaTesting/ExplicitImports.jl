@@ -24,3 +24,34 @@ ExplicitImports.inspect_session
 ExplicitImports.FileAnalysis
 ExplicitImports.get_default_skip_pairs
 ```
+
+## How to debug issues
+
+There are 2 sources of data used by ExplicitImports:
+
+- static: read the file, parse the code with JuliaSyntax, then do some ad-hoc lowering to identify scoping and which names are being used
+   - the main function here is [`get_names_used`](@ref)
+- dynamic: load the module, and get a list of names available in its namespace due to being exported by other modules
+   - this is done dynamically since we don't look at source code outside of the current project. (Potentially we could parse them too and do everything statically?).
+   - this lets the Julia runtime tell us which names are being implicitly imported
+   - this is done via [`find_implicit_imports`](@ref)
+
+We then reconcile these lists against each other to identify which implicit imports are used (and therefore could be converted into explicit imports), stale explicit imports, etc.
+
+Most of the work here is done on the static side and most of the bugs are on the static side.
+
+Let's say you think there is something going wrong there. The first step is to write a minimal reproducible example as a file, e.g. here `issue_129.jl`. Then we can learn what ExplicitImports thinks about every single identifier in the file via:
+
+```julia
+julia> using ExplicitImports, DataFrames, PrettyTables
+
+julia> df = DataFrame(get_names_used("issue_129.jl").per_usage_info);
+
+julia> select!(df, Not(:scope_path)); # too verbose
+
+julia> open("table.md"; write=true) do io
+       PrettyTables.pretty_table(io, df; show_subheader=false, tf=PrettyTables.tf_markdown)
+       end
+```
+
+We can then use DataFrames manipulations to subset `df` to parts of interest etc. Usually we can then track down where a name has been mis-identified and fix the relevant bit of code.
