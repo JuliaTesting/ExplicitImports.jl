@@ -137,8 +137,8 @@ end
         usages = get_usages(:x, [:TestModDefault13])
         nonarg = subset(usages, :function_arg => ByRow(!))
         @test nrow(nonarg) >= 1
-        @test_broken all(row -> row.analysis_code != ExplicitImports.External,
-                         eachrow(nonarg)) # default should see prior positional
+        @test all(row -> row.analysis_code != ExplicitImports.External,
+                  eachrow(nonarg)) # default should see prior positional
     end
 
     # Case 14: Current parameter not visible in its own default
@@ -165,8 +165,8 @@ end
         usages = get_usages(:x, [:TestModDefault16])
         nonarg = subset(usages, :function_arg => ByRow(!))
         @test nrow(nonarg) >= 1
-        @test_broken all(row -> row.analysis_code != ExplicitImports.External,
-                         eachrow(nonarg)) # keyword default should see positional
+        @test all(row -> row.analysis_code != ExplicitImports.External,
+                  eachrow(nonarg)) # keyword default should see positional
     end
 
     # Case 17: Keyword default can see earlier keyword
@@ -175,8 +175,8 @@ end
         usages = get_usages(:x, [:TestModDefault17])
         nonarg = subset(usages, :function_arg => ByRow(!))
         @test nrow(nonarg) >= 1
-        @test_broken all(row -> row.analysis_code != ExplicitImports.External,
-                         eachrow(nonarg)) # keyword default should see earlier keyword
+        @test all(row -> row.analysis_code != ExplicitImports.External,
+                  eachrow(nonarg)) # keyword default should see earlier keyword
     end
 
     # Case 18: Keyword default cannot see later keyword
@@ -221,8 +221,8 @@ end
         usages = get_usages(:x, [:TestModDefault22])
         nonarg = subset(usages, :function_arg => ByRow(!))
         @test nrow(nonarg) >= 1
-        @test_broken all(row -> row.analysis_code != ExplicitImports.External,
-                         eachrow(nonarg)) # typed prior positional should be visible
+        @test all(row -> row.analysis_code != ExplicitImports.External,
+                  eachrow(nonarg)) # typed prior positional should be visible
     end
 
     # Case 23: Nested function literal inside default sees prior parameter
@@ -231,8 +231,8 @@ end
         usages = get_usages(:x, [:TestModDefault23])
         nonarg = subset(usages, :function_arg => ByRow(!))
         @test nrow(nonarg) >= 1
-        @test_broken all(row -> row.analysis_code != ExplicitImports.External,
-                         eachrow(nonarg)) # nested literal should inherit default scope
+        @test all(row -> row.analysis_code != ExplicitImports.External,
+                  eachrow(nonarg)) # nested literal should inherit default scope
     end
 
     # Case 24: Varargs positional binding visible to keyword default
@@ -241,7 +241,7 @@ end
         usages = get_usages(:x, [:TestModDefault24])
         nonarg = subset(usages, :function_arg => ByRow(!))
         @test nrow(nonarg) >= 1
-        @test_broken all(row -> row.analysis_code != ExplicitImports.External,
-                         eachrow(nonarg)) # keyword default should see varargs
+        @test all(row -> row.analysis_code != ExplicitImports.External,
+                  eachrow(nonarg)) # keyword default should see varargs
     end
 end

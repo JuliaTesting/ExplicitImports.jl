@@ -4,6 +4,26 @@
 
 @enum AnalysisCode IgnoredNonFirst IgnoredQualified IgnoredImportRHS InternalHigherScope InternalFunctionArg InternalAssignment InternalStruct InternalForLoop InternalGenerator InternalCatchArgument External
 
+# Tracks default-expression scope metadata so name resolution can honor Julia's
+# prior-parameter visibility rules without treating defaults as full function scope.
+struct DefaultParamContext
+    owner::JuliaSyntax.SyntaxNode
+    visible_names::Vector{Symbol}
+end
+
+# Holds mutable traversal state while walking from a leaf to the root.
+# Keeps scope and module paths together so scope logic stays localized.
+mutable struct ScopeWalkState
+    module_path::Vector{Symbol}
+    scope_path::Vector{JuliaSyntax.SyntaxNode}
+    is_assignment::Bool
+    default_param_ctx::Union{Nothing,DefaultParamContext}
+end
+
+function ScopeWalkState(default_param_ctx::Union{Nothing,DefaultParamContext})
+    return ScopeWalkState(Symbol[], JuliaSyntax.SyntaxNode[], false, default_param_ctx)
+end
+
 Base.@kwdef struct PerUsageInfo
     name::Symbol
     qualified_by::Union{Nothing,Vector{Symbol}}
@@ -18,6 +38,7 @@ Base.@kwdef struct PerUsageInfo
     for_loop_index::Bool
     generator_index::Bool
     catch_arg::Bool
+    default_param_ctx::Union{Nothing,DefaultParamContext} = nothing
     first_usage_in_scope::Bool
     external_global_name::Union{Missing,Bool}
     analysis_code::AnalysisCode
@@ -419,6 +440,20 @@ function is_catch_arg(leaf)
     return in_catch_arg_position(leaf)
 end
 
+# Cache all leaf-specific facts up front so scope walking stays focused.
+function collect_leaf_flags(leaf)
+    return (;
+            function_arg=is_function_definition_arg(leaf),
+            struct_field_or_type_param=is_struct_type_param(leaf) ||
+                                       is_struct_field_name(leaf) ||
+                                       is_where_type_param(leaf) ||
+                                       is_bound_by_where_clause(leaf),
+            for_loop_index=is_for_arg(leaf),
+            generator_index=is_generator_arg(leaf),
+            catch_arg=is_catch_arg(leaf),
+            default_param_ctx=default_param_context(leaf))
+end
+
 function in_catch_arg_position(node)
     # We must be the first argument of a `catch` block
     if !has_parent(node)
@@ -443,11 +478,105 @@ end
 # Check if a leaf is within a default parameter value expression
 # Default parameter values are evaluated in the outer scope, not the function's scope
 function is_in_default_parameter_value(leaf; debug=false)
-    return default_parameter_scope_owner(leaf; debug=debug) !== nothing
+    return default_param_context(leaf; debug=debug) !== nothing
 end
 
-# Return the scope node that should be skipped for default parameter values.
-function default_parameter_scope_owner(leaf; debug=false)
+function simple_param_name(node)
+    k = kind(node)
+    if k == K"Identifier"
+        return get_val(node)
+    elseif k in (K"::", K"=", K"...")
+        kids = js_children(node)
+        isempty(kids) && return nothing
+        return simple_param_name(first(kids))
+    end
+    return nothing
+end
+
+# Collect prior positional parameter names that are simple identifiers.
+function prior_positional_param_names(call_node, stop_idx)
+    visible = Symbol[]
+    kids = js_children(call_node)
+    for i in 2:(stop_idx - 1)
+        name = simple_param_name(kids[i])
+        name === nothing || push!(visible, name)
+    end
+    return visible
+end
+
+# Collect prior arrow-function tuple parameter names.
+function prior_tuple_param_names(tuple_node, stop_idx)
+    visible = Symbol[]
+    kids = js_children(tuple_node)
+    for i in 1:(stop_idx - 1)
+        name = simple_param_name(kids[i])
+        name === nothing || push!(visible, name)
+    end
+    return visible
+end
+
+# Collect positional + prior keyword parameter names for keyword defaults.
+function prior_keyword_param_names(call_node, params_node, stop_idx)
+    visible = Symbol[]
+    for (i, child) in enumerate(js_children(call_node))
+        i == 1 && continue
+        child === js_node(params_node) && break
+        name = simple_param_name(child)
+        name === nothing || push!(visible, name)
+    end
+    kids = js_children(params_node)
+    for i in 1:(stop_idx - 1)
+        name = simple_param_name(kids[i])
+        name === nothing || push!(visible, name)
+    end
+    return visible
+end
+
+function push_scope_if_needed!(state, node, idx)
+    k = kind(node)
+    args = nodevalue(node).node.raw.children
+    if k in
+       (K"let", K"for", K"function", K"struct", K"generator", K"while", K"macro", K"do", K"->") ||
+       # any child of `try` gets it's own individual scope (I think)
+       (parents_match(node, (K"try",)))
+        # Skip the function scope that owns a default value (default values are in the outer scope).
+        if state.default_param_ctx === nothing ||
+           nodevalue(node).node !== state.default_param_ctx.owner
+            push!(state.scope_path, nodevalue(node).node)
+        end
+    elseif idx > 3 && k == K"=" && !isempty(args) &&
+           kind(first(args)) == K"call"
+        # Skip inline function scope when analyzing its default values.
+        if state.default_param_ctx === nothing ||
+           nodevalue(node).node !== state.default_param_ctx.owner
+            push!(state.scope_path, nodevalue(node).node)
+        end
+    end
+end
+
+function track_module_path!(state, node)
+    kind(node) == K"module" || return
+    ids = filter(children(nodevalue(node))) do arg
+        return kind(arg.node) == K"Identifier"
+    end
+    if !isempty(ids)
+        push!(state.module_path, first(ids).node.val)
+    end
+    push!(state.scope_path, nodevalue(node).node)
+end
+
+function track_assignment_lhs!(state, node, leaf)
+    kind(node) == K"=" || return
+    kids = children(nodevalue(node))
+    if !isempty(kids)
+        c = first(kids)
+        state.is_assignment |= c == nodevalue(leaf)
+    end
+end
+
+# Return the default-parameter evaluation context if `leaf` is inside a default value.
+# Walk up ancestors to detect a default expression and its visible prior params.
+function default_param_context(leaf; debug=false)
     node = leaf
     # Walk up the tree looking for a `=` node that's part of a function parameter
     for i in 1:100  # limit depth to avoid infinite loops
@@ -456,27 +585,21 @@ function default_parameter_scope_owner(leaf; debug=false)
         k = kind(node)
 
         if i == 100
-            @warn "default_parameter_scope_owner reached recursion limit" leaf
+            @warn "default_param_context reached recursion limit" leaf
         end
 
         debug && println("  Step $i: kind = $k")
 
         # If we found a `=` node, check if it's a default parameter
         if k == K"="
-            owner = default_parameter_scope_owner_for_eq(leaf, node; debug=debug)
-            owner === nothing || return owner
-        end
-
-        # Stop if we've reached a scope boundary (function, module, etc.)
-        if k in (K"function", K"module", K"macro")
-            debug && println("  -> Hit scope boundary, returning nothing")
-            return nothing
+            ctx = default_param_context_for_eq(leaf, node; debug=debug)
+            ctx === nothing || return ctx
         end
     end
     return nothing
 end
 
-function default_parameter_scope_owner_for_eq(leaf, eq_node; debug=false)
+function default_param_context_for_eq(leaf, eq_node; debug=false)
     # Make sure the original leaf is on the RHS of the `=` (the default value)
     descends_from_first_child_of(leaf, eq_node) && return nothing
 
@@ -486,7 +609,8 @@ function default_parameter_scope_owner_for_eq(leaf, eq_node; debug=false)
         owner = function_def_scope_owner(call_node)
         if owner !== nothing
             debug && println("  -> Matched regular function default")
-            return owner
+            visible = prior_positional_param_names(call_node, child_index(eq_node))
+            return DefaultParamContext(owner, visible)
         end
     elseif parents_match(eq_node, (K"tuple",))
         # Arrow function with default: (x = default) -> body
@@ -500,7 +624,8 @@ function default_parameter_scope_owner_for_eq(leaf, eq_node; debug=false)
         if has_parent(tuple_node) && kind(parent(tuple_node)) == K"->" &&
            child_index(tuple_node) == 1
             debug && println("  -> Matched arrow function default")
-            return nodevalue(parent(tuple_node)).node
+            visible = prior_tuple_param_names(tuple_node, child_index(eq_node))
+            return DefaultParamContext(nodevalue(parent(tuple_node)).node, visible)
         end
     elseif parents_match(eq_node, (K"parameters",))
         # Keyword argument with default: f(; x = default) or f(a; x = default)
@@ -511,7 +636,8 @@ function default_parameter_scope_owner_for_eq(leaf, eq_node; debug=false)
             owner = function_def_scope_owner(call_node)
             if owner !== nothing
                 debug && println("  -> Matched keyword argument default")
-                return owner
+                visible = prior_keyword_param_names(call_node, parent_node, child_index(eq_node))
+                return DefaultParamContext(owner, visible)
             end
         end
     end
@@ -566,75 +692,42 @@ end
 # We could do these two things separately for more clarity.
 function analyze_name(leaf; debug=false)
     # Ok, we have a "name". Let us work our way up and try to figure out if it is in local scope or not
-    function_arg = is_function_definition_arg(leaf)
-    # Check for struct type params, struct field names, where clause type params, and names bound by where clauses
-    struct_field_or_type_param = is_struct_type_param(leaf) || is_struct_field_name(leaf) ||
-                                  is_where_type_param(leaf) || is_bound_by_where_clause(leaf)
-    for_loop_index = is_for_arg(leaf)
-    generator_index = is_generator_arg(leaf)
-    catch_arg = is_catch_arg(leaf)
-    # Default parameter values are evaluated in the outer scope.
-    default_param_scope_owner = default_parameter_scope_owner(leaf)
-    module_path = Symbol[]
-    scope_path = JuliaSyntax.SyntaxNode[]
-    is_assignment = false
+    leaf_flags = collect_leaf_flags(leaf)
+    state = ScopeWalkState(leaf_flags.default_param_ctx)
     node = leaf
     idx = 1
 
-    prev_node = nothing
     while true
         # update our state
         val = get_val(node)
         k = kind(node)
-        args = nodevalue(node).node.raw.children
 
         debug && println(val, ": ", k)
         # Constructs that start a new local scope. Note `let` & `macro` *arguments* are not explicitly supported/tested yet,
         # but we can at least keep track of scope properly.
-        if k in
-           (K"let", K"for", K"function", K"struct", K"generator", K"while", K"macro", K"do", K"->") ||
-           # any child of `try` gets it's own individual scope (I think)
-           (parents_match(node, (K"try",)))
-            # Skip the function scope that owns a default value (default values are in the outer scope).
-            nodevalue(node).node === default_param_scope_owner ||
-                push!(scope_path, nodevalue(node).node)
-            # try to detect presence in RHS of inline function definition
-        elseif idx > 3 && k == K"=" && !isempty(args) &&
-               kind(first(args)) == K"call"
-            # Skip inline function scope when analyzing its default values.
-            nodevalue(node).node === default_param_scope_owner ||
-                push!(scope_path, nodevalue(node).node)
-        end
+        push_scope_if_needed!(state, node, idx)
 
         # track which modules we are in
-        if k == K"module" # baremodules?
-            ids = filter(children(nodevalue(node))) do arg
-                return kind(arg.node) == K"Identifier"
-            end
-            if !isempty(ids)
-                push!(module_path, first(ids).node.val)
-            end
-            push!(scope_path, nodevalue(node).node)
-        end
+        track_module_path!(state, node)
 
         # figure out if our name (`nodevalue(leaf)`) is the LHS of an assignment
         # Note: this doesn't detect assignments to qualified variables (`X.y = rhs`)
         # but that's OK since we don't want to pick them up anyway.
-        if k == K"="
-            kids = children(nodevalue(node))
-            if !isempty(kids)
-                c = first(kids)
-                is_assignment |= c == nodevalue(leaf)
-            end
-        end
+        track_assignment_lhs!(state, node, leaf)
 
-        prev_node = node
         node = parent(node)
 
         # finished climbing to the root
         node === nothing &&
-            return (; function_arg, is_assignment, module_path, scope_path,
-                    struct_field_or_type_param, for_loop_index, generator_index, catch_arg)
+            return (; leaf_flags.function_arg,
+                    is_assignment=state.is_assignment,
+                    module_path=state.module_path,
+                    scope_path=state.scope_path,
+                    leaf_flags.struct_field_or_type_param,
+                    leaf_flags.for_loop_index,
+                    leaf_flags.generator_index,
+                    leaf_flags.catch_arg,
+                    leaf_flags.default_param_ctx)
         idx += 1
     end
 end
@@ -671,7 +764,8 @@ function analyze_all_names(file)
                                  struct_field_or_type_param::Bool,
                                  for_loop_index::Bool,
                                  generator_index::Bool,
-                                 catch_arg::Bool}[]
+                                 catch_arg::Bool,
+                                 default_param_ctx::Union{Nothing,DefaultParamContext}}[]
 
     # we need to keep track of all names that we see, because we could
     # miss entire modules if it is an `include` we cannot follow.
@@ -725,7 +819,10 @@ function analyze_all_names(file)
     return analyze_per_usage_info(per_usage_info), untainted_modules
 end
 
-function is_name_internal_in_higher_local_scope(name, scope_path, seen)
+function is_name_internal_in_higher_local_scope(name, scope_path, seen; default_param_ctx=nothing)
+    if default_param_ctx !== nothing && name in default_param_ctx.visible_names
+        return true
+    end
     # We will recurse up the `scope_path`. Note the order is "reversed",
     # so the first entry of `scope_path` is deepest.
 
@@ -821,7 +918,8 @@ function analyze_per_usage_info(per_usage_info)
         # * this was the first usage in this scope, but it could already be used in a "higher" local scope. It is possible we have not yet processed that scope fully but we will assume we have (TODO-someday). So we will recurse up and check if it is a local name there.
         if is_name_internal_in_higher_local_scope(nt.name,
                                                   nt.scope_path,
-                                                  seen)
+                                                  seen;
+                                                  default_param_ctx=nt.default_param_ctx)
             external_global_name = false
             push!(seen,
                   (; nt.name, scope_path=SyntaxNodeList(nt.scope_path)) => external_global_name)
