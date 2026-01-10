@@ -211,7 +211,7 @@ function explicit_imports_nonrecursive(mod::Module, file=pathof(mod);
     if warn_stale !== nothing
         @warn "[explicit_imports_nonrecursive] keyword argument `warn_stale` is deprecated and does nothing" _id = :explicit_imports_explicit_imports_warn_stale maxlog = 1
     end
-    all_implicit_imports = find_implicit_imports(mod; skip)
+    all_implicit_imports = find_implicit_imports(mod)
 
     needs_explicit_import, unnecessary_explicit_import, tainted = filter_to_module(file_analysis,
                                                                                    mod)
@@ -223,9 +223,6 @@ function explicit_imports_nonrecursive(mod::Module, file=pathof(mod);
     filter!(all_implicit_imports) do (k, v)
         k in needed_names || return false
         any(mod -> should_skip(mod; skip), v.exporters) && return false
-        # Don't suggest importing symbols whose source should be skipped (issue #137)
-        # For example, Base symbols re-exported by other modules are already implicitly available
-        should_skip(v.source; skip) && return false
         return true
     end
 
