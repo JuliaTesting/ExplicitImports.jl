@@ -4,6 +4,8 @@
 
 @enum AnalysisCode IgnoredNonFirst IgnoredQualified IgnoredImportRHS InternalHigherScope InternalFunctionArg InternalAssignment InternalStruct InternalForLoop InternalGenerator InternalCatchArgument External
 
+const RECURSION_LIMIT = 100
+
 # Tracks default-expression scope metadata so name resolution can honor Julia's
 # prior-parameter visibility rules without treating defaults as full function scope.
 struct DefaultParamContext
@@ -587,14 +589,10 @@ end
 function default_param_context(leaf; debug=false)
     node = leaf
     # Walk up the tree looking for a `=` node that's part of a function parameter
-    for i in 1:100  # limit depth to avoid infinite loops
+    for i in 1:RECURSION_LIMIT  # limit depth to avoid infinite loops
         has_parent(node) || return nothing
         node = parent(node)
         k = kind(node)
-
-        if i == 100
-            @warn "default_param_context reached recursion limit" leaf
-        end
 
         debug && println("  Step $i: kind = $k")
 
@@ -602,6 +600,10 @@ function default_param_context(leaf; debug=false)
         if k == K"="
             ctx = default_param_context_for_eq(leaf, node; debug=debug)
             ctx === nothing || return ctx
+        end
+
+        if i == RECURSION_LIMIT
+            @warn "default_param_context reached recursion limit" leaf
         end
     end
     return nothing
@@ -675,7 +677,7 @@ function descends_from_first_child_of(descendent, ancestor)
     # Check if descendent is the first child or a descendent of it
     # Walk up the tree from descendent; if we hit first_child before ancestor, return true
     node = descendent
-    for _ in 1:100  # safety limit to avoid infinite loops
+    for i in 1:RECURSION_LIMIT  # safety limit to avoid infinite loops
         if nodevalue(node).node === first_child
             return true
         end
@@ -690,6 +692,10 @@ function descends_from_first_child_of(descendent, ancestor)
             return false
         end
         node = parent_node
+
+        if i == RECURSION_LIMIT
+            @warn "descends_from_first_child_of reached recursion limit" descendent ancestor
+        end
     end
     return false
 end
