@@ -2,7 +2,7 @@
 # Run with: julia --project -e 'using TestEnv; TestEnv.activate(); include("test/test_default_params.jl")'
 
 using ExplicitImports
-using ExplicitImports: get_names_used, is_in_default_parameter_value, is_ancestor_first_child_of
+using ExplicitImports: get_names_used, is_in_default_parameter_value, descends_from_first_child_of
 using Test
 using DataFrames
 
@@ -114,5 +114,20 @@ end
         usages = get_usages(:RefValue, [:TestModDefault10])
         external_usages = subset(usages, :analysis_code => ByRow(==(ExplicitImports.External)))
         @test nrow(external_usages) >= 1
+    end
+
+    # Case 11: Default value should see outer local scope
+    @testset "Case 11: outer local in default value" begin
+        @test check_no_stale_explicit_imports(TestModDefault11, TEST_FILE) === nothing
+        usages = get_usages(:local_ref, [:TestModDefault11])
+        @test any(row -> row.analysis_code == ExplicitImports.InternalAssignment, eachrow(usages))
+        @test all(row -> row.analysis_code != ExplicitImports.External, eachrow(usages))
+    end
+
+    # Case 12: Arrow body tuple should not be treated as default params
+    @testset "Case 12: arrow body tuple" begin
+        usages = get_usages(:x, [:TestModDefault12])
+        @test any(row -> row.analysis_code == ExplicitImports.InternalFunctionArg, eachrow(usages))
+        @test all(row -> row.analysis_code != ExplicitImports.External, eachrow(usages))
     end
 end

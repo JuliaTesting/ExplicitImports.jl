@@ -1,5 +1,5 @@
 # Test modules for default parameter value scoping (issue #120, #62)
-# These test is_in_default_parameter_value and is_ancestor_first_child_of
+# These test is_in_default_parameter_value and descends_from_first_child_of
 
 # https://github.com/JuliaTesting/ExplicitImports.jl/issues/120
 module TestModIssue120
@@ -96,3 +96,20 @@ function f(x::T = RefValue{Int}(1)) where T
     return x
 end
 end # TestModDefault10
+
+# Case 11: Default value should see outer local scope
+module TestModDefault11
+using Base: RefValue
+function outer()
+    local_ref = RefValue(1)
+    function inner(x = local_ref[])
+        return x
+    end
+    return inner()
+end
+end # TestModDefault11
+
+# Case 12: Arrow body tuple should not be treated as default params
+module TestModDefault12
+const f = x -> (a = x)
+end # TestModDefault12
