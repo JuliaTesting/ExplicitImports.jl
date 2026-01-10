@@ -2,14 +2,14 @@
 # These test is_in_default_parameter_value and is_ancestor_first_child_of
 
 # https://github.com/JuliaTesting/ExplicitImports.jl/issues/120
-module TestMod16
+module TestModIssue120
 using Base: wrap_string
 
 function f(wrap_string = wrap_string("foo", UInt32(1)))
     print(wrap_string)
 end
 
-end # TestMod16
+end # TestModIssue120
 
 # Case 1: Type annotation on parameter - T should NOT be in default value
 module TestModDefault1

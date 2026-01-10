@@ -22,11 +22,11 @@ end
 
 @testset "Default parameter value scoping" begin
     # Original issue #120
-    @testset "TestMod16 - original issue" begin
-        @test check_no_stale_explicit_imports(TestMod16, TEST_FILE) === nothing
+    @testset "TestModIssue120 - original issue" begin
+        @test check_no_stale_explicit_imports(TestModIssue120, TEST_FILE) === nothing
 
         df = DataFrame(get_names_used(TEST_FILE).per_usage_info)
-        subset!(df, :name => ByRow(==(:wrap_string)), :module_path => ByRow(==([:TestMod16])))
+        subset!(df, :name => ByRow(==(:wrap_string)), :module_path => ByRow(==([:TestModIssue120])))
 
         wrap_string_in_default = only(subset(df,
                                              :function_arg => ByRow(!),
