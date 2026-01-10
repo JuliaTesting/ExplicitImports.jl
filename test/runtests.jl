@@ -15,7 +15,8 @@ using Logging, UUIDs
 using ExplicitImports.Vendored.AbstractTrees
 using ExplicitImports: is_function_definition_arg, SyntaxNodeWrapper, get_val
 using ExplicitImports: is_struct_type_param, is_struct_field_name, is_for_arg,
-                       is_generator_arg, analyze_qualified_names
+                       is_generator_arg, analyze_qualified_names,
+                       is_where_type_param, is_bound_by_where_clause
 using TestPkg, Markdown
 using Compat: Compat # load for compat skipping tests
 
@@ -78,6 +79,7 @@ include("main.jl")
 include("Test_Mod_Underscores.jl")
 include("module_alias.jl")
 include("issue_129.jl")
+include("issue_140.jl")
 
 @testset "ExplicitImports" begin
     @testset "deprecations" begin
@@ -533,6 +535,75 @@ include("issue_129.jl")
         # Tests #34 and #36
         @test using_statement.(explicit_imports_nonrecursive(TestMod5, "test_mods.jl")) ==
               ["using LinearAlgebra: LinearAlgebra"]
+    end
+
+    @testset "where clause type parameters (#140)" begin
+        # Test that type parameters in `where` clauses are correctly identified
+        # and don't get confused with LinearAlgebra.I
+        cursor = TreeCursor(SyntaxNodeWrapper("issue_140.jl"))
+        leaves = collect(Leaves(cursor))
+
+        # Test is_where_type_param detects type param definitions
+        where_type_params = filter(is_where_type_param, leaves)
+        @test :I in map(get_val, where_type_params)
+        @test :T in map(get_val, where_type_params)
+        @test :S in map(get_val, where_type_params)
+
+        # Test is_bound_by_where_clause detects usages bound by where
+        bound_by_where = filter(is_bound_by_where_clause, leaves)
+        # The `I` in `x::I` and `indices::I` should be detected
+        @test :I in map(get_val, bound_by_where)
+
+        # Test that explicit_imports doesn't suggest `using LinearAlgebra: I`
+        # Simple case
+        simple_imports = using_statement.(explicit_imports_nonrecursive(WhereTypeParamSimple,
+                                                                         "issue_140.jl"))
+        @test simple_imports == ["using LinearAlgebra: LinearAlgebra"]
+
+        # Constructor case (the original bug report)
+        constructor_imports = using_statement.(explicit_imports_nonrecursive(WhereTypeParamConstructor,
+                                                                              "issue_140.jl"))
+        @test constructor_imports == ["using LinearAlgebra: LinearAlgebra"]
+
+        # Nested where clauses
+        nested_imports = using_statement.(explicit_imports_nonrecursive(WhereTypeParamNested,
+                                                                         "issue_140.jl"))
+        @test nested_imports == ["using LinearAlgebra: LinearAlgebra"]
+
+        # Type parameter with bounds
+        bounds_imports = using_statement.(explicit_imports_nonrecursive(WhereTypeParamWithBounds,
+                                                                         "issue_140.jl"))
+        @test bounds_imports == ["using LinearAlgebra: LinearAlgebra"]
+
+        # Verify analysis codes are correct
+        df = DataFrame(get_names_used("issue_140.jl").per_usage_info)
+        # Filter to just the WhereTypeParamSimple module and the `I` name
+        simple_I = subset(df, :name => ByRow(==(:I)),
+                          :module_path => ByRow(==([:WhereTypeParamSimple])))
+        # Both usages should be internal (definition and usage)
+        @test all(c -> c in (ExplicitImports.InternalStruct, ExplicitImports.IgnoredNonFirst),
+                  simple_I.analysis_code)
+
+        # Test struct with <: supertype
+        supertype_imports = using_statement.(explicit_imports_nonrecursive(StructWithSupertype,
+                                                                            "issue_140.jl"))
+        @test supertype_imports == ["using LinearAlgebra: LinearAlgebra"]
+
+        # Test struct with <: supertype and type param bounds
+        supertype_bounds_imports = using_statement.(explicit_imports_nonrecursive(StructWithSupertypeAndBounds,
+                                                                                   "issue_140.jl"))
+        @test supertype_bounds_imports == ["using LinearAlgebra: LinearAlgebra"]
+
+        # Test varargs function arguments
+        varargs_imports = using_statement.(explicit_imports_nonrecursive(VarargsFunction,
+                                                                          "issue_140.jl"))
+        @test varargs_imports == ["using LinearAlgebra: LinearAlgebra"]
+
+        # Verify varargs are classified as InternalFunctionArg
+        varargs_I = subset(df, :name => ByRow(==(:I)),
+                           :module_path => ByRow(==([:VarargsFunction])))
+        @test all(c -> c in (ExplicitImports.InternalFunctionArg, ExplicitImports.IgnoredNonFirst),
+                  varargs_I.analysis_code)
     end
 
     @testset "loops" begin
