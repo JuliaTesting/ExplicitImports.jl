@@ -197,3 +197,19 @@ function f(x...; y = x)
     return y
 end
 end # TestModDefault24
+
+# Case 25: where-wrapped default should not treat param as in-scope for default
+module TestModDefault25
+using Base: wrap_string
+function f(wrap_string::T = wrap_string("foo", UInt32(1))) where T
+    return wrap_string
+end
+end # TestModDefault25
+
+# Case 26: Arrow function assignment should not leak to outer scope
+module TestModDefault26
+function f()
+    g = x -> (y = 1; y)
+    return y
+end
+end # TestModDefault26

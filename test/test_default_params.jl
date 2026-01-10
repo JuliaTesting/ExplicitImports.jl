@@ -244,4 +244,21 @@ end
         @test all(row -> row.analysis_code != ExplicitImports.External,
                   eachrow(nonarg)) # keyword default should see varargs
     end
+
+    # Case 25: where-wrapped default param shadowing import
+    @testset "Case 25: where-wrapped default param" begin
+    @test check_no_stale_explicit_imports(TestModDefault25, TEST_FILE) === nothing
+        usages = get_usages(:wrap_string, [:TestModDefault25])
+        nonarg = subset(usages, :function_arg => ByRow(!))
+        @test nrow(nonarg) >= 1
+    @test any(row -> row.analysis_code == ExplicitImports.External, eachrow(nonarg))
+    end
+
+    # Case 26: Arrow function assignment should not leak to outer scope
+    @testset "Case 26: arrow scope boundary" begin
+        usages = get_usages(:y, [:TestModDefault26])
+        @test any(row -> row.analysis_code == ExplicitImports.External, eachrow(usages))
+        @test any(row -> row.analysis_code == ExplicitImports.InternalAssignment,
+                  eachrow(usages))
+    end
 end
