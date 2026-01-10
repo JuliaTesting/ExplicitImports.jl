@@ -1,6 +1,6 @@
 name = "ExplicitImports"
 uuid = "7d51a73a-1435-4ff3-83d9-f097790105c7"
-version = "1.14.0"
+version = "1.14.1"
 authors = ["Eric P. Hanson"]
 
 [deps]
@@ -8,7 +8,6 @@ Markdown = "d6f4376e-aef5-505a-96c1-9c027394607a"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
 TOML = "fa267f1f-6049-4f14-aa54-33bafae1ed76"
-TestPkg = "2546e945-adb7-4322-82ee-f75412f38725"
 
 [compat]
 Aqua = "0.8.4"
