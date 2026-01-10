@@ -15,26 +15,6 @@ end
 
 end # module
 
-module FieldNameOnly
-
-using ..HelloSource: hello
-
-struct Foo
-    hello::String
-end
-
-end # module
-
-module UntypedFieldNameOnly
-
-using ..HelloSource: hello
-
-struct Foo
-    hello
-end
-
-end # module
-
 module MutableFieldNameInnerConstructor
 
 using ..HelloSource: hello
@@ -52,6 +32,26 @@ using ..HelloSource: hello
 
 Base.@kwdef struct Foo
     hello::String = hello()
+end
+
+end # module
+
+module FieldNameOnly
+
+using ..HelloSource: hello
+
+struct Foo
+    hello::String
+end
+
+end # module
+
+module UntypedFieldNameOnly
+
+using ..HelloSource: hello
+
+struct Foo
+    hello
 end
 
 end # module
