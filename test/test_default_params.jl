@@ -115,4 +115,16 @@ end
         external_usages = subset(usages, :analysis_code => ByRow(==(ExplicitImports.External)))
         @test nrow(external_usages) >= 1
     end
+
+    # Issue #98: Named tuple / kwarg with same name as imported function
+    # https://github.com/JuliaTesting/ExplicitImports.jl/issues/98
+    @testset "Issue 98: named tuple/kwarg shadowing" begin
+        @test check_no_stale_explicit_imports(TestModIssue98, TEST_FILE) === nothing
+        usages = get_usages(:getindex, [:TestModIssue98])
+        # Each of test, test2, test3 has a usage of getindex as kwarg name (not External)
+        # and as function call (should be External)
+        external_usages = subset(usages, :analysis_code => ByRow(==(ExplicitImports.External)))
+        # At least 3 external usages (one for each test function)
+        @test nrow(external_usages) >= 3
+    end
 end

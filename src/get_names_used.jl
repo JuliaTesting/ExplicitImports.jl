@@ -440,6 +440,42 @@ function is_double_colon_LHS(leaf)
     return child_index(leaf) == 1
 end
 
+# Check if an `=` node is a named tuple field or function call kwarg
+# In these cases, the LHS doesn't create a local variable that shadows the RHS
+# Examples: (; x=x(...)) or func(; x=x(...))
+# https://github.com/JuliaTesting/ExplicitImports.jl/issues/98
+function is_named_tuple_or_kwarg_assignment(eq_node)
+    kind(eq_node) == K"=" || return false
+    # Check if this `=` is inside `parameters` (kwargs) or directly inside a `tuple` (named tuple field)
+    has_parent(eq_node) || return false
+    p = parent(eq_node)
+    pk = kind(p)
+    if pk == K"parameters"
+        # This is a kwarg like func(; x=val) or a named tuple like (; x=val)
+        return true
+    elseif pk == K"tuple"
+        # This could be a named tuple like (x=val, y=val) without the semicolon
+        # Need to distinguish from regular tuple assignment like `(a, b) = (1, 2)`
+        # In a named tuple, the `=` is directly inside the tuple
+        # In tuple destructuring, the tuple is on the LHS of another `=`
+        # Also need to check it's not an arrow function arg like `(x=default) -> ...`
+        if has_parent(p)
+            gp = parent(p)
+            gpk = kind(gp)
+            # Arrow function: (x=default) -> body - this IS a default param, not named tuple
+            if gpk == K"->"
+                return false
+            end
+            # Tuple on LHS of assignment: (a, b) = ... - destructuring, not named tuple
+            if gpk == K"=" && child_index(p) == 1
+                return false
+            end
+        end
+        return true
+    end
+    return false
+end
+
 # Check if a leaf is within a default parameter value expression
 # Default parameter values are evaluated in the outer scope, not the function's scope
 function is_in_default_parameter_value(leaf; debug=false)
@@ -589,11 +625,16 @@ function analyze_name(leaf; debug=false)
         # figure out if our name (`nodevalue(leaf)`) is the LHS of an assignment
         # Note: this doesn't detect assignments to qualified variables (`X.y = rhs`)
         # but that's OK since we don't want to pick them up anyway.
+        # Also exclude named tuple fields and kwargs where LHS doesn't create a local
+        # (issue #98: func(; x=x(...)) - the LHS x doesn't shadow RHS x)
         if k == K"="
             kids = children(nodevalue(node))
             if !isempty(kids)
                 c = first(kids)
-                is_assignment |= c == nodevalue(leaf)
+                # Only mark as assignment if it's not a named tuple field or kwarg
+                if c == nodevalue(leaf) && !is_named_tuple_or_kwarg_assignment(node)
+                    is_assignment = true
+                end
             end
         end
 
