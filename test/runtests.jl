@@ -101,6 +101,10 @@ include("issue_140.jl")
                                 (; name=:groupby, source=DataFrames.DataAPI)]
     end
 
+    @testset "Field names shadowing external globals (#111)" begin
+        include("issue_111_test.jl")
+    end
+
     @testset "module aliases (#106)" begin
         # https://github.com/JuliaTesting/ExplicitImports.jl/issues/106
         ret = Dict(improper_explicit_imports(ModAlias, "module_alias.jl"))

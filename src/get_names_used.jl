@@ -14,6 +14,7 @@ Base.@kwdef struct PerUsageInfo
     is_assignment::Bool
     module_path::Vector{Symbol}
     scope_path::Vector{JuliaSyntax.SyntaxNode}
+    struct_field_name::Bool
     struct_field_or_type_param::Bool
     for_loop_index::Bool
     generator_index::Bool
@@ -255,6 +256,12 @@ function is_struct_field_name(leaf)
     elseif parents_match(leaf, (K"::", K"=", K"block", K"struct"))
         # if we are in a `Base.@kwdef`, we may be on the LHS of an `=`
         return is_double_colon_LHS(leaf) && child_index(parent(leaf)) == 1
+    elseif parents_match(leaf, (K"=", K"block", K"struct"))
+        # untyped field with default value (`x = 1`) inside the struct block
+        return child_index(leaf) == 1
+    elseif parents_match(leaf, (K"block", K"struct"))
+        # untyped field declaration (`x`) inside the struct block
+        return true
     else
         return false
     end
@@ -447,8 +454,10 @@ end
 function analyze_name(leaf; debug=false)
     # Ok, we have a "name". Let us work our way up and try to figure out if it is in local scope or not
     function_arg = is_function_definition_arg(leaf)
-    # Check for struct type params, struct field names, where clause type params, and names bound by where clauses
-    struct_field_or_type_param = is_struct_type_param(leaf) || is_struct_field_name(leaf) ||
+    # Struct field names are syntactic locals but don't create a binding that should
+    # shadow later uses in the same scope (e.g. inner constructors).
+    struct_field_name = is_struct_field_name(leaf)
+    struct_field_or_type_param = is_struct_type_param(leaf) || struct_field_name ||
                                   is_where_type_param(leaf) || is_bound_by_where_clause(leaf)
     for_loop_index = is_for_arg(leaf)
     generator_index = is_generator_arg(leaf)
@@ -507,7 +516,7 @@ function analyze_name(leaf; debug=false)
 
         # finished climbing to the root
         node === nothing &&
-            return (; function_arg, is_assignment, module_path, scope_path,
+            return (; function_arg, is_assignment, module_path, scope_path, struct_field_name,
                     struct_field_or_type_param, for_loop_index, generator_index, catch_arg)
         idx += 1
     end
@@ -542,6 +551,7 @@ function analyze_all_names(file)
                                  is_assignment::Bool,
                                  module_path::Vector{Symbol},
                                  scope_path::Vector{JuliaSyntax.SyntaxNode},
+                                 struct_field_name::Bool,
                                  struct_field_or_type_param::Bool,
                                  for_loop_index::Bool,
                                  generator_index::Bool,
@@ -667,6 +677,16 @@ function analyze_per_usage_info(per_usage_info)
             return PerUsageInfo(; nt..., first_usage_in_scope=true,
                                 external_global_name=missing,
                                 analysis_code=IgnoredImportRHS)
+        end
+        if nt.struct_field_name
+            # Do not record struct field names in `seen`, otherwise they mask later
+            # references with the same identifier in the surrounding scope.
+            # Intentionally no `push!` to `seen` here.
+            # (issue #111)
+            external_global_name = false
+            return PerUsageInfo(; nt..., first_usage_in_scope=true,
+                                external_global_name,
+                                analysis_code=InternalStruct)
         end
 
         # At this point, we have an unqualified name, which is not the RHS of an import, and it is the first time we have seen this name in this scope.
