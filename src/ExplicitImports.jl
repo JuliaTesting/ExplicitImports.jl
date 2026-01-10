@@ -223,6 +223,9 @@ function explicit_imports_nonrecursive(mod::Module, file=pathof(mod);
     filter!(all_implicit_imports) do (k, v)
         k in needed_names || return false
         any(mod -> should_skip(mod; skip), v.exporters) && return false
+        # Don't suggest importing symbols whose source should be skipped (issue #137)
+        # For example, Base symbols re-exported by other modules are already implicitly available
+        should_skip(v.source; skip) && return false
         return true
     end
 

@@ -126,6 +126,18 @@ include("issue_129.jl")
         @test isempty(improper_explicit_imports(TestMod15, "test_mods.jl")[1][2])
     end
 
+    # https://github.com/JuliaTesting/ExplicitImports.jl/issues/137
+    @testset "Base symbols re-exported by other modules" begin
+        # When Base exports a symbol that is re-exported by another module (like LinearAlgebra),
+        # we should not suggest importing it since Base symbols are implicitly available
+        results = explicit_imports_nonrecursive(TestMod16, "test_mods.jl")
+        # The key test: no Base symbols should be suggested from non-Base modules
+        base_symbols_wrongly_suggested = filter(results) do r
+            r.source == Base && choose_exporter(r.name, r.exporters) != Base
+        end
+        @test isempty(base_symbols_wrongly_suggested)
+    end
+
     # https://github.com/JuliaTesting/ExplicitImports.jl/issues/70
     @testset "Compat skipping" begin
         @test check_all_explicit_imports_via_owners(TestMod14, "test_mods.jl") ===
