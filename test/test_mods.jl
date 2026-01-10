@@ -236,18 +236,18 @@ end # TestMod15
 
 # https://github.com/JuliaTesting/ExplicitImports.jl/issues/137
 module TestMod16
-using LinearAlgebra
+using ..BaseReexporter
 
-# Use symbols that are exported by both Base and LinearAlgebra
-# Base exports `/` and `convert`, and LinearAlgebra re-exports them
-# The bug: ExplicitImports suggests importing these from LinearAlgebra
+# Use symbols that are exported by both Base and BaseReexporter
+# Base exports `/` and `convert`, and BaseReexporter re-exports them
+# The bug: ExplicitImports suggests importing these from BaseReexporter
 # The fix: Should not suggest importing them since Base exports them (implicitly available)
 function foo(x, y)
-    x / y  # uses `/` which is exported by both Base and LinearAlgebra
+    x / y  # uses `/` which is exported by both Base and BaseReexporter
 end
 
 function bar(x)
-    convert(Float64, x)  # uses `convert` which is exported by both Base and LinearAlgebra
+    convert(Float64, x)  # uses `convert` which is exported by both Base and BaseReexporter
 end
 
 end # TestMod16

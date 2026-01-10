@@ -45,3 +45,12 @@ a() = "a"
 z() = "z"
 
 end # Exporter4
+
+# Re-exports Base symbols (for testing issue #137)
+module BaseReexporter
+
+# Re-export some Base functions to simulate packages like LinearAlgebra
+# that re-export Base symbols
+export /, convert
+
+end # BaseReexporter
