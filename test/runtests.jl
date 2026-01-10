@@ -583,6 +583,27 @@ include("issue_140.jl")
         # Both usages should be internal (definition and usage)
         @test all(c -> c in (ExplicitImports.InternalStruct, ExplicitImports.IgnoredNonFirst),
                   simple_I.analysis_code)
+
+        # Test struct with <: supertype
+        supertype_imports = using_statement.(explicit_imports_nonrecursive(StructWithSupertype,
+                                                                            "issue_140.jl"))
+        @test supertype_imports == ["using LinearAlgebra: LinearAlgebra"]
+
+        # Test struct with <: supertype and type param bounds
+        supertype_bounds_imports = using_statement.(explicit_imports_nonrecursive(StructWithSupertypeAndBounds,
+                                                                                   "issue_140.jl"))
+        @test supertype_bounds_imports == ["using LinearAlgebra: LinearAlgebra"]
+
+        # Test varargs function arguments
+        varargs_imports = using_statement.(explicit_imports_nonrecursive(VarargsFunction,
+                                                                          "issue_140.jl"))
+        @test varargs_imports == ["using LinearAlgebra: LinearAlgebra"]
+
+        # Verify varargs are classified as InternalFunctionArg
+        varargs_I = subset(df, :name => ByRow(==(:I)),
+                           :module_path => ByRow(==([:VarargsFunction])))
+        @test all(c -> c in (ExplicitImports.InternalFunctionArg, ExplicitImports.IgnoredNonFirst),
+                  varargs_I.analysis_code)
     end
 
     @testset "loops" begin

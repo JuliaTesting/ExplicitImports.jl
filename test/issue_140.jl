@@ -45,3 +45,42 @@ function baz(x::T) where {T <: Number}
 end
 
 end # module
+
+module StructWithSupertype
+using LinearAlgebra
+
+# Struct with <: supertype - type params should not be confused with globals
+abstract type AbstractFoo end
+
+struct Foo{LX, LY, I, T} <: AbstractFoo
+    data::T
+    indices::I
+end
+
+end # module
+
+module StructWithSupertypeAndBounds
+using LinearAlgebra
+
+# Struct with <: supertype and type param bounds
+abstract type AbstractBar end
+
+struct Bar{I <: Integer, T <: Number} <: AbstractBar
+    data::T
+    index::I
+end
+
+end # module
+
+module VarargsFunction
+using LinearAlgebra
+
+# Varargs function arguments - I should not be confused with LinearAlgebra.I
+function process(data, I...)
+    return data, I
+end
+
+# Method with qualified module prefix
+Base.checkbounds(::Type{Int}, I...) = nothing
+
+end # module

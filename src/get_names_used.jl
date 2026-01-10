@@ -213,6 +213,9 @@ function is_non_anonymous_function_definition_arg(leaf)
         is_double_colon_LHS(leaf) || return false
         # Ok, let's just step up one level and see again
         return is_non_anonymous_function_definition_arg(parent(leaf))
+    elseif parents_match(leaf, (K"...",))
+        # Handle varargs like `foo(args...)` - step up one level
+        return is_non_anonymous_function_definition_arg(parent(leaf))
     else
         return false
     end
@@ -262,9 +265,15 @@ function is_struct_type_param(leaf)
     if parents_match(leaf, (K"curly", K"struct"))
         # Here we want the non-first argument of `curly`
         return child_index(leaf) > 1
+    elseif parents_match(leaf, (K"curly", K"<:", K"struct"))
+        # Handle `struct Foo{T} <: Bar` - type params in curly inside <: inside struct
+        return child_index(leaf) > 1 && child_index(get_parent(leaf)) == 1
     elseif parents_match(leaf, (K"<:", K"curly", K"struct"))
         # Here we only want the LHS of the <:, AND the not-first argument of curly
         return child_index(leaf) == 1 && child_index(get_parent(leaf)) > 1
+    elseif parents_match(leaf, (K"<:", K"curly", K"<:", K"struct"))
+        # Handle `struct Foo{T <: Number} <: Bar` - type param with bound in curly inside <: inside struct
+        return child_index(leaf) == 1 && child_index(get_parent(leaf)) > 1 && child_index(get_parent(leaf, 2)) == 1
     else
         return false
     end
