@@ -213,3 +213,26 @@ function f()
     return y
 end
 end # TestModDefault26
+
+# https://github.com/JuliaTesting/ExplicitImports.jl/issues/98
+# Named tuple / kwarg with same name as imported function
+# The kwarg name doesn't create a local variable that shadows the RHS
+module TestModIssue98
+using Base: getindex
+
+function test()
+    # Like: stacked_area_plot!(ax, samples; start=start(density.span))
+    # The second `getindex` (the function call) should be recognized as External
+    return (; getindex=getindex([1,2,3], 1))
+end
+
+# Also test with function call kwargs (not just named tuples)
+function test2(f)
+    f(; getindex=getindex([1,2,3], 2))
+end
+
+# Named tuple without semicolon
+function test3()
+    return (getindex=getindex([1,2,3], 3), other=1)
+end
+end # TestModIssue98
