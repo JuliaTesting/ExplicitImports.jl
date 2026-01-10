@@ -256,6 +256,12 @@ function is_struct_field_name(leaf)
     elseif parents_match(leaf, (K"::", K"=", K"block", K"struct"))
         # if we are in a `Base.@kwdef`, we may be on the LHS of an `=`
         return is_double_colon_LHS(leaf) && child_index(parent(leaf)) == 1
+    elseif parents_match(leaf, (K"=", K"block", K"struct"))
+        # untyped field with default value (`x = 1`) inside the struct block
+        return child_index(leaf) == 1
+    elseif parents_match(leaf, (K"block", K"struct"))
+        # untyped field declaration (`x`) inside the struct block
+        return true
     else
         return false
     end

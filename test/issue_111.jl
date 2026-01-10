@@ -25,6 +25,16 @@ end
 
 end # module
 
+module UntypedFieldNameOnly
+
+using ..HelloSource: hello
+
+struct Foo
+    hello
+end
+
+end # module
+
 module MutableFieldNameInnerConstructor
 
 using ..HelloSource: hello

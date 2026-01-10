@@ -1,5 +1,3 @@
-using ExplicitImports
-
 issue_path = joinpath(@__DIR__, "issue_111.jl")
 include(issue_path)
 
@@ -36,6 +34,14 @@ end
     @test_throws ExplicitImports.StaleImportsException check_no_stale_explicit_imports(FieldNameOnly,
                                                                                        issue_path)
     codes = hello_codes(:FieldNameOnly)
+    @test ExplicitImports.InternalStruct in codes
+    @test ExplicitImports.External ∉ codes
+end
+
+@testset "untyped field name alone is stale import" begin
+    @test_throws ExplicitImports.StaleImportsException check_no_stale_explicit_imports(UntypedFieldNameOnly,
+                                                                                       issue_path)
+    codes = hello_codes(:UntypedFieldNameOnly)
     @test ExplicitImports.InternalStruct in codes
     @test ExplicitImports.External ∉ codes
 end
