@@ -213,6 +213,9 @@ function is_non_anonymous_function_definition_arg(leaf)
         is_double_colon_LHS(leaf) || return false
         # Ok, let's just step up one level and see again
         return is_non_anonymous_function_definition_arg(parent(leaf))
+    elseif parents_match(leaf, (K"...",))
+        # Handle varargs like `foo(args...)` - step up one level
+        return is_non_anonymous_function_definition_arg(parent(leaf))
     else
         return false
     end
@@ -262,12 +265,104 @@ function is_struct_type_param(leaf)
     if parents_match(leaf, (K"curly", K"struct"))
         # Here we want the non-first argument of `curly`
         return child_index(leaf) > 1
+    elseif parents_match(leaf, (K"curly", K"<:", K"struct"))
+        # Handle `struct Foo{T} <: Bar` - type params in curly inside <: inside struct
+        return child_index(leaf) > 1 && child_index(get_parent(leaf)) == 1
     elseif parents_match(leaf, (K"<:", K"curly", K"struct"))
         # Here we only want the LHS of the <:, AND the not-first argument of curly
         return child_index(leaf) == 1 && child_index(get_parent(leaf)) > 1
+    elseif parents_match(leaf, (K"<:", K"curly", K"<:", K"struct"))
+        # Handle `struct Foo{T <: Number} <: Bar` - type param with bound in curly inside <: inside struct
+        return child_index(leaf) == 1 && child_index(get_parent(leaf)) > 1 && child_index(get_parent(leaf, 2)) == 1
     else
         return false
     end
+end
+
+# Check if an identifier is a type parameter being *defined* in a `where` clause.
+# e.g., in `function foo(x::T) where T`, the second `T` is the definition.
+# The `where` node has structure: (where <expr> <type_param1> <type_param2> ...)
+# So type params are children with index > 1.
+function is_where_type_param(leaf)
+    kind(leaf) == K"Identifier" || return false
+    if parents_match(leaf, (K"where",))
+        # Type params are non-first children of `where`
+        return child_index(leaf) > 1
+    elseif parents_match(leaf, (K"<:", K"where"))
+        # Handle `where T <: Number` - T is on LHS of <:
+        return child_index(leaf) == 1 && child_index(get_parent(leaf)) > 1
+    elseif parents_match(leaf, (K"curly", K"where"))
+        # Handle `where {T, S}` syntax - type params inside curly braces
+        return child_index(get_parent(leaf)) > 1
+    elseif parents_match(leaf, (K"braces", K"where"))
+        # Handle `where {T, S}` syntax - braces is used instead of curly
+        return child_index(get_parent(leaf)) > 1
+    elseif parents_match(leaf, (K"<:", K"curly", K"where"))
+        # Handle `where {T <: Number, S}` syntax
+        return child_index(leaf) == 1 && child_index(get_parent(leaf, 2)) > 1
+    elseif parents_match(leaf, (K"<:", K"braces", K"where"))
+        # Handle `where {T <: Number, S}` syntax with braces
+        return child_index(leaf) == 1 && child_index(get_parent(leaf, 2)) > 1
+    else
+        return false
+    end
+end
+
+# Get all type parameter names defined by a `where` clause.
+# The `where` node has structure: (where <expr> <type_param1> <type_param2> ...)
+function get_where_type_params(where_node)
+    names = Symbol[]
+    kids = js_children(where_node)
+    for (i, child) in enumerate(kids)
+        i == 1 && continue  # Skip the first child (the expression)
+        _collect_type_param_names!(names, child)
+    end
+    return names
+end
+
+function _collect_type_param_names!(names, node)
+    k = kind(node)
+    if k == K"Identifier"
+        push!(names, get_val(node))
+    elseif k == K"<:"
+        # For `T <: Number`, we want `T` which is the first child
+        kids = js_children(node)
+        if !isempty(kids)
+            _collect_type_param_names!(names, first(kids))
+        end
+    elseif k in (K"curly", K"braces")
+        # For `where {T, S}`, collect all identifiers
+        # Note: `where {T, S}` uses `braces`, while `Foo{T, S}` uses `curly`
+        for child in js_children(node)
+            _collect_type_param_names!(names, child)
+        end
+    end
+end
+
+# Check if an identifier is *used* inside a `where` clause and is bound by
+# one of the type parameters defined in that (or an enclosing) `where` clause.
+# e.g., in `function foo(x::T) where T`, the first `T` (in `x::T`) is bound by the `where`.
+function is_bound_by_where_clause(leaf)
+    kind(leaf) == K"Identifier" || return false
+    name = get_val(leaf)
+    # Walk up the tree looking for `where` clauses
+    node = leaf
+    while has_parent(node)
+        p = parent(node)
+        if kind(p) == K"where"
+            # Check if we're in the first child (the expression where type params are used)
+            # and if our name is one of the type params
+            if child_index(node) == 1
+                type_params = get_where_type_params(js_node(p))
+                if name in type_params
+                    return true
+                end
+            end
+            # Also check enclosing `where` clauses (for nested `where` like `where T where S`)
+        end
+        node = p
+    end
+    return false
 end
 
 # In the future, this may need an update for
@@ -352,7 +447,9 @@ end
 function analyze_name(leaf; debug=false)
     # Ok, we have a "name". Let us work our way up and try to figure out if it is in local scope or not
     function_arg = is_function_definition_arg(leaf)
-    struct_field_or_type_param = is_struct_type_param(leaf) || is_struct_field_name(leaf)
+    # Check for struct type params, struct field names, where clause type params, and names bound by where clauses
+    struct_field_or_type_param = is_struct_type_param(leaf) || is_struct_field_name(leaf) ||
+                                  is_where_type_param(leaf) || is_bound_by_where_clause(leaf)
     for_loop_index = is_for_arg(leaf)
     generator_index = is_generator_arg(leaf)
     catch_arg = is_catch_arg(leaf)
