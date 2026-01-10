@@ -440,6 +440,74 @@ function is_double_colon_LHS(leaf)
     return child_index(leaf) == 1
 end
 
+# Check if a leaf is within a default parameter value expression
+# Default parameter values are evaluated in the outer scope, not the function's scope
+function is_in_default_parameter_value(leaf)
+    node = leaf
+    # Walk up the tree looking for a `=` node that's part of a function parameter
+    for i in 1:100  # limit depth to avoid infinite loops
+        has_parent(node) || return false
+        node = parent(node)
+        k = kind(node)
+
+        if i == 100
+            @warn "is_in_default_parameter_value reached recursion limit" leaf
+        end
+
+        # If we found a `=` node, check if it's a default parameter
+        if k == K"="
+            # Check if this `=` is part of a function signature
+            # It should be inside a call/tuple/parameters that's part of a function
+            if parents_match(node, (K"call",)) && call_is_func_def(parent(node))
+                # Make sure the original leaf is on the RHS of the `=` (the default value)
+                # We do this by checking if the leaf is NOT the first child of the `=`
+                return !is_ancestor_first_child_of(leaf, node)
+            elseif parents_match(node, (K"tuple",)) || parents_match(node, (K"parameters",))
+                # Check if this tuple/parameters is part of a function definition
+                parent_node = parent(node)
+                if has_parent(parent_node)
+                    grandparent = parent(parent_node)
+                    if kind(grandparent) in (K"function", K"->")
+                        return !is_ancestor_first_child_of(leaf, node)
+                    elseif kind(parent_node) == K"call" && call_is_func_def(parent_node)
+                        return !is_ancestor_first_child_of(leaf, node)
+                    end
+                end
+            end
+        end
+
+        # Stop if we've reached a scope boundary (function, module, etc.)
+        if k in (K"function", K"module", K"macro")
+            return false
+        end
+    end
+    return false
+end
+
+# Helper: check if `descendant` is a descendant of the first child of `ancestor`
+function is_ancestor_first_child_of(descendant, ancestor)
+    kids = children(nodevalue(ancestor))
+    isempty(kids) && return false
+    first_child = first(kids).node
+
+    # Check if descendant is the first child or a descendant of it
+    node = descendant
+    while true
+        if nodevalue(node).node === first_child
+            return true
+        end
+        has_parent(node) || return false
+        parent_node = parent(node)
+        if nodevalue(parent_node).node === first_child
+            return false
+        end
+        if nodevalue(parent_node).node === nodevalue(ancestor).node
+            return false
+        end
+        node = parent_node
+    end
+end
+
 # Here we use the magic of AbstractTrees' `TreeCursor` so we can start at
 # a leaf and follow the parents up to see what scopes our leaf is in.
 # TODO-someday- cleanup. This basically has two jobs: check is function arg etc, and figure out the scope/module path.
@@ -453,6 +521,8 @@ function analyze_name(leaf; debug=false)
     for_loop_index = is_for_arg(leaf)
     generator_index = is_generator_arg(leaf)
     catch_arg = is_catch_arg(leaf)
+    # Check if we're in a default parameter value (evaluated in outer scope)
+    in_default_param_value = is_in_default_parameter_value(leaf)
     module_path = Symbol[]
     scope_path = JuliaSyntax.SyntaxNode[]
     is_assignment = false
@@ -473,7 +543,11 @@ function analyze_name(leaf; debug=false)
            (K"let", K"for", K"function", K"struct", K"generator", K"while", K"macro", K"do") ||
            # any child of `try` gets it's own individual scope (I think)
            (parents_match(node, (K"try",)))
-            push!(scope_path, nodevalue(node).node)
+            # Skip adding function to scope if we're in a default parameter value
+            # (default values are evaluated in the outer scope)
+            if !(k == K"function" && in_default_param_value)
+                push!(scope_path, nodevalue(node).node)
+            end
             # try to detect presence in RHS of inline function definition
         elseif idx > 3 && k == K"=" && !isempty(args) &&
                kind(first(args)) == K"call"

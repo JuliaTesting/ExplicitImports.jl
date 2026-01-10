@@ -110,10 +110,33 @@ include("issue_140.jl")
 
     @testset "function arg bug" begin
         # https://github.com/JuliaTesting/ExplicitImports.jl/issues/62
+        # Fixed by the same fix as issue #120
         df = DataFrame(get_names_used("test_mods.jl").per_usage_info)
         subset!(df, :name => ByRow(==(:norm)), :module_path => ByRow(==([:TestMod13])))
 
-        @test_broken check_no_stale_explicit_imports(TestMod13, "test_mods.jl") === nothing
+        @test check_no_stale_explicit_imports(TestMod13, "test_mods.jl") === nothing
+    end
+
+    # https://github.com/JuliaTesting/ExplicitImports.jl/issues/120
+    @testset "default parameter value shadowing" begin
+        # Default parameter values are evaluated in outer scope, so imported names
+        # used in default values should not be flagged as unused even when shadowed
+        # by the parameter name
+        @test check_no_stale_explicit_imports(TestMod16, "test_mods.jl") === nothing
+
+        # Verify the usage in the default value is correctly identified as External
+        df = DataFrame(get_names_used("test_mods.jl").per_usage_info)
+        subset!(df, :name => ByRow(==(:wrap_string)), :module_path => ByRow(==([:TestMod16])))
+
+        # Identify the usage in the default value by its properties:
+        # - NOT a function_arg (the parameter name IS a function_arg)
+        # - NOT import_RHS (the import statement)
+        # - Should be External (recognized as global usage)
+        wrap_string_in_default = only(subset(df,
+                                             :function_arg => ByRow(!),
+                                             :import_type => ByRow(!=(:import_RHS)),
+                                             :analysis_code => ByRow(==(ExplicitImports.External))))
+        @test wrap_string_in_default.external_global_name === true
     end
 
     @testset "owner_mod_for_printing" begin
