@@ -86,6 +86,10 @@ include("issue_140.jl")
         include("deprecated.jl")
     end
 
+    @testset "Issue #120: default params" begin
+        include("test_default_params.jl")
+    end
+
     @testset "Extensions" begin
         submods = ExplicitImports.find_submodules(TestPkg)
         @test length(submods) == 2
@@ -114,10 +118,11 @@ include("issue_140.jl")
 
     @testset "function arg bug" begin
         # https://github.com/JuliaTesting/ExplicitImports.jl/issues/62
+        # Fixed by the same fix as issue #120
         df = DataFrame(get_names_used("test_mods.jl").per_usage_info)
         subset!(df, :name => ByRow(==(:norm)), :module_path => ByRow(==([:TestMod13])))
 
-        @test_broken check_no_stale_explicit_imports(TestMod13, "test_mods.jl") === nothing
+        @test check_no_stale_explicit_imports(TestMod13, "test_mods.jl") === nothing
     end
 
     @testset "owner_mod_for_printing" begin
