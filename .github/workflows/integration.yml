@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 jobs:
   test:
-    name: Integration (${{ matrix.project }} - ${{ matrix.version }} - ${{ matrix.os }} - ${{ github.event_name }})
+    name: ${{ matrix.project }} (Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ github.event_name }})
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
