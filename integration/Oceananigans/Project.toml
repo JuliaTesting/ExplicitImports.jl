@@ -1,0 +1,10 @@
+[deps]
+ExplicitImports = "7d51a73a-1435-4ff3-83d9-f097790105c7"
+Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[compat]
+Oceananigans = "=0.103.1"
+
+[sources]
+ExplicitImports = {path = "../.."}
