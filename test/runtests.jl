@@ -1,5 +1,6 @@
 using Pkg
 Pkg.develop(; path=joinpath(@__DIR__, "TestPkg"))
+Pkg.develop(; path=joinpath(@__DIR__, "Issue79Pkg"))
 Pkg.precompile()
 using ExplicitImports
 using ExplicitImports: analyze_all_names, has_ancestor, should_skip,
@@ -103,6 +104,10 @@ include("issue_140.jl")
                 ext_imports == [(; name=:DataFrames, source=DataFrames),
                                 (; name=:DataFrame, source=DataFrames),
                                 (; name=:groupby, source=DataFrames.DataAPI)]
+    end
+
+    @testset "Extension submodules (#79)" begin
+        include("issue_79_test.jl")
     end
 
     @testset "Field names shadowing external globals (#111)" begin
