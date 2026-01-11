@@ -2,7 +2,29 @@
 # We will do this by parsing, then re-implementing scoping rules on top of the parse tree.
 # See `src/parse_utilities.jl` for an overview of the strategy and the utility functions we will use.
 
-@enum AnalysisCode IgnoredNonFirst IgnoredQualified IgnoredImportRHS InternalHigherScope InternalFunctionArg InternalAssignment InternalStruct InternalForLoop InternalGenerator InternalCatchArgument External
+@enum AnalysisCode IgnoredNonFirst IgnoredQualified IgnoredImportRHS InternalHigherScope InternalFunctionArg InternalAssignment InternalStruct InternalForLoop InternalGenerator InternalCatchArgument External IgnoredKwargName
+
+const RECURSION_LIMIT = 100
+
+# Tracks default-expression scope metadata so name resolution can honor Julia's
+# prior-parameter visibility rules without treating defaults as full function scope.
+struct DefaultParamContext
+    owner::JuliaSyntax.SyntaxNode
+    visible_names::Vector{Symbol}
+end
+
+# Holds mutable traversal state while walking from a leaf to the root.
+# Keeps scope and module paths together so scope logic stays localized.
+mutable struct ScopeWalkState
+    module_path::Vector{Symbol}
+    scope_path::Vector{JuliaSyntax.SyntaxNode}
+    is_assignment::Bool
+    default_param_ctx::Union{Nothing,DefaultParamContext}
+end
+
+function ScopeWalkState(default_param_ctx::Union{Nothing,DefaultParamContext})
+    return ScopeWalkState(Symbol[], JuliaSyntax.SyntaxNode[], false, default_param_ctx)
+end
 
 Base.@kwdef struct PerUsageInfo
     name::Symbol
@@ -15,10 +37,12 @@ Base.@kwdef struct PerUsageInfo
     module_path::Vector{Symbol}
     scope_path::Vector{JuliaSyntax.SyntaxNode}
     struct_field_name::Bool
+    kwarg_name::Bool
     struct_field_or_type_param::Bool
     for_loop_index::Bool
     generator_index::Bool
     catch_arg::Bool
+    default_param_ctx::Union{Nothing,DefaultParamContext} = nothing
     first_usage_in_scope::Bool
     external_global_name::Union{Missing,Bool}
     analysis_code::AnalysisCode
@@ -286,6 +310,24 @@ function is_struct_type_param(leaf)
     end
 end
 
+# Check if an identifier is a keyword argument name or named tuple field name.
+function is_kwarg_name(leaf)
+    kind(leaf) == K"Identifier" || return false
+    parents_match(leaf, (K"=",)) || return false
+    child_index(leaf) == 1 || return false
+
+    if parents_match(leaf, (K"=", K"parameters", K"call"))
+        call_node = get_parent(leaf, 3)
+        return function_def_scope_owner(call_node) === nothing
+    elseif parents_match(leaf, (K"=", K"parameters", K"tuple"))
+        return true
+    elseif parents_match(leaf, (K"=", K"tuple"))
+        return true
+    end
+
+    return false
+end
+
 # Check if an identifier is a type parameter being *defined* in a `where` clause.
 # e.g., in `function foo(x::T) where T`, the second `T` is the definition.
 # The `where` node has structure: (where <expr> <type_param1> <type_param2> ...)
@@ -426,6 +468,23 @@ function is_catch_arg(leaf)
     return in_catch_arg_position(leaf)
 end
 
+# Cache all leaf-specific facts up front so scope walking stays focused.
+function collect_leaf_flags(leaf)
+    struct_field_name = is_struct_field_name(leaf)
+    kwarg_name = is_kwarg_name(leaf)
+    return (;
+            function_arg=is_function_definition_arg(leaf),
+            struct_field_name,
+            kwarg_name,
+            struct_field_or_type_param=is_struct_type_param(leaf) || struct_field_name ||
+                                       is_where_type_param(leaf) ||
+                                       is_bound_by_where_clause(leaf),
+            for_loop_index=is_for_arg(leaf),
+            generator_index=is_generator_arg(leaf),
+            catch_arg=is_catch_arg(leaf),
+            default_param_ctx=default_param_context(leaf))
+end
+
 function in_catch_arg_position(node)
     # We must be the first argument of a `catch` block
     if !has_parent(node)
@@ -447,77 +506,265 @@ function is_double_colon_LHS(leaf)
     return child_index(leaf) == 1
 end
 
+# Check if a leaf is within a default parameter value expression
+# Default parameter values are evaluated in the outer scope, not the function's scope
+function is_in_default_parameter_value(leaf; debug=false)
+    return default_param_context(leaf; debug=debug) !== nothing
+end
+
+function simple_param_name(node)
+    k = kind(node)
+    if k == K"Identifier"
+        return get_val(node)
+    elseif k in (K"::", K"=", K"...")
+        kids = js_children(node)
+        isempty(kids) && return nothing
+        return simple_param_name(first(kids))
+    end
+    return nothing
+end
+
+# Collect prior positional parameter names that are simple identifiers.
+function prior_positional_param_names(call_node, stop_idx)
+    visible = Symbol[]
+    kids = js_children(call_node)
+    for i in 2:(stop_idx - 1)
+        name = simple_param_name(kids[i])
+        name === nothing || push!(visible, name)
+    end
+    return visible
+end
+
+# Collect prior arrow-function tuple parameter names.
+function prior_tuple_param_names(tuple_node, stop_idx)
+    visible = Symbol[]
+    kids = js_children(tuple_node)
+    for i in 1:(stop_idx - 1)
+        name = simple_param_name(kids[i])
+        name === nothing || push!(visible, name)
+    end
+    return visible
+end
+
+# Collect positional + prior keyword parameter names for keyword defaults.
+function prior_keyword_param_names(call_node, params_node, stop_idx)
+    visible = Symbol[]
+    for (i, child) in enumerate(js_children(call_node))
+        i == 1 && continue
+        child === js_node(params_node) && break
+        name = simple_param_name(child)
+        name === nothing || push!(visible, name)
+    end
+    kids = js_children(params_node)
+    for i in 1:(stop_idx - 1)
+        name = simple_param_name(kids[i])
+        name === nothing || push!(visible, name)
+    end
+    return visible
+end
+
+function push_scope_if_needed!(state, node, idx)
+    k = kind(node)
+    args = nodevalue(node).node.raw.children
+    if k in
+       (K"let", K"for", K"function", K"struct", K"generator", K"while", K"macro", K"do", K"->") ||
+       # any child of `try` gets it's own individual scope (I think)
+       (parents_match(node, (K"try",)))
+        # Skip the function scope that owns a default value (default values are in the outer scope).
+        if state.default_param_ctx === nothing ||
+           nodevalue(node).node !== state.default_param_ctx.owner
+            push!(state.scope_path, nodevalue(node).node)
+        end
+    elseif idx > 3 && k == K"=" && !isempty(args) &&
+           kind(first(args)) == K"call"
+        # Skip inline function scope when analyzing its default values.
+        if state.default_param_ctx === nothing ||
+           nodevalue(node).node !== state.default_param_ctx.owner
+            push!(state.scope_path, nodevalue(node).node)
+        end
+    end
+end
+
+function track_module_path!(state, node)
+    kind(node) == K"module" || return
+    ids = filter(children(nodevalue(node))) do arg
+        return kind(arg.node) == K"Identifier"
+    end
+    if !isempty(ids)
+        push!(state.module_path, first(ids).node.val)
+    end
+    push!(state.scope_path, nodevalue(node).node)
+end
+
+function track_assignment_lhs!(state, node, leaf)
+    kind(node) == K"=" || return
+    kids = children(nodevalue(node))
+    if !isempty(kids)
+        c = first(kids)
+        state.is_assignment |= c == nodevalue(leaf)
+    end
+end
+
+# Return the default-parameter evaluation context if `leaf` is inside a default value.
+# Walk up ancestors to detect a default expression and its visible prior params.
+function default_param_context(leaf; debug=false)
+    node = leaf
+    # Walk up the tree looking for a `=` node that's part of a function parameter
+    for i in 1:RECURSION_LIMIT  # limit depth to avoid infinite loops
+        has_parent(node) || return nothing
+        node = parent(node)
+        k = kind(node)
+
+        debug && println("  Step $i: kind = $k")
+
+        # If we found a `=` node, check if it's a default parameter
+        if k == K"="
+            ctx = default_param_context_for_eq(leaf, node; debug=debug)
+            ctx === nothing || return ctx
+        end
+
+        if i == RECURSION_LIMIT
+            @warn "default_param_context reached recursion limit" leaf
+        end
+    end
+    return nothing
+end
+
+function default_param_context_for_eq(leaf, eq_node; debug=false)
+    # Make sure the original leaf is on the RHS of the `=` (the default value)
+    descends_from_first_child_of(leaf, eq_node) && return nothing
+
+    # Regular function with default: f(x = default)
+    if parents_match(eq_node, (K"call",))
+        call_node = parent(eq_node)
+        owner = function_def_scope_owner(call_node)
+        if owner !== nothing
+            debug && println("  -> Matched regular function default")
+            visible = prior_positional_param_names(call_node, child_index(eq_node))
+            return DefaultParamContext(owner, visible)
+        end
+    elseif parents_match(eq_node, (K"tuple",))
+        # Arrow function with default: (x = default) -> body
+        # The tuple should be the first child of ->
+        tuple_node = parent(eq_node)
+        debug && println("  -> Matched tuple parent, checking for ->")
+        debug && println("     has_parent(tuple_node) = $(has_parent(tuple_node))")
+        if has_parent(tuple_node)
+            debug && println("     kind(parent(tuple_node)) = $(kind(parent(tuple_node)))")
+        end
+        if has_parent(tuple_node) && kind(parent(tuple_node)) == K"->" &&
+           child_index(tuple_node) == 1
+            debug && println("  -> Matched arrow function default")
+            visible = prior_tuple_param_names(tuple_node, child_index(eq_node))
+            return DefaultParamContext(nodevalue(parent(tuple_node)).node, visible)
+        end
+    elseif parents_match(eq_node, (K"parameters",))
+        # Keyword argument with default: f(; x = default) or f(a; x = default)
+        # Structure: = -> parameters -> call -> function
+        parent_node = parent(eq_node)  # parameters
+        if has_parent(parent_node)
+            call_node = parent(parent_node)  # call
+            owner = function_def_scope_owner(call_node)
+            if owner !== nothing
+                debug && println("  -> Matched keyword argument default")
+                visible = prior_keyword_param_names(call_node, parent_node, child_index(eq_node))
+                return DefaultParamContext(owner, visible)
+            end
+        end
+    end
+
+    return nothing
+end
+
+function function_def_scope_owner(call_node)
+    kind(call_node) == K"call" || return nothing
+    if call_is_func_def(call_node)
+        return nodevalue(parent(call_node)).node
+    end
+    has_parent(call_node) || return nothing
+    parent_node = parent(call_node)
+    if kind(parent_node) == K"=" && child_index(call_node) == 1
+        return nodevalue(parent_node).node
+    end
+    return nothing
+end
+
+# Helper: check if `descendent` is a descendent of the first child of `ancestor`
+function descends_from_first_child_of(descendent, ancestor)
+    kids = children(nodevalue(ancestor))
+    isempty(kids) && return false
+    first_child = first(kids).node
+
+    # Check if descendent is the first child or a descendent of it
+    # Walk up the tree from descendent; if we hit first_child before ancestor, return true
+    node = descendent
+    for i in 1:RECURSION_LIMIT  # safety limit to avoid infinite loops
+        if nodevalue(node).node === first_child
+            return true
+        end
+        has_parent(node) || return false
+        parent_node = parent(node)
+        # If parent is the first_child, then descendent is inside first_child's subtree
+        if nodevalue(parent_node).node === first_child
+            return true
+        end
+        # If we reached the ancestor without going through first_child, descendent is not in first_child's subtree
+        if nodevalue(parent_node).node === nodevalue(ancestor).node
+            return false
+        end
+        node = parent_node
+
+        if i == RECURSION_LIMIT
+            @warn "descends_from_first_child_of reached recursion limit" descendent ancestor
+        end
+    end
+    return false
+end
+
 # Here we use the magic of AbstractTrees' `TreeCursor` so we can start at
 # a leaf and follow the parents up to see what scopes our leaf is in.
 # TODO-someday- cleanup. This basically has two jobs: check is function arg etc, and figure out the scope/module path.
 # We could do these two things separately for more clarity.
 function analyze_name(leaf; debug=false)
     # Ok, we have a "name". Let us work our way up and try to figure out if it is in local scope or not
-    function_arg = is_function_definition_arg(leaf)
-    # Struct field names are syntactic locals but don't create a binding that should
-    # shadow later uses in the same scope (e.g. inner constructors).
-    struct_field_name = is_struct_field_name(leaf)
-    struct_field_or_type_param = is_struct_type_param(leaf) || struct_field_name ||
-                                  is_where_type_param(leaf) || is_bound_by_where_clause(leaf)
-    for_loop_index = is_for_arg(leaf)
-    generator_index = is_generator_arg(leaf)
-    catch_arg = is_catch_arg(leaf)
-    module_path = Symbol[]
-    scope_path = JuliaSyntax.SyntaxNode[]
-    is_assignment = false
+    leaf_flags = collect_leaf_flags(leaf)
+    state = ScopeWalkState(leaf_flags.default_param_ctx)
     node = leaf
     idx = 1
 
-    prev_node = nothing
     while true
         # update our state
         val = get_val(node)
         k = kind(node)
-        args = nodevalue(node).node.raw.children
 
         debug && println(val, ": ", k)
         # Constructs that start a new local scope. Note `let` & `macro` *arguments* are not explicitly supported/tested yet,
         # but we can at least keep track of scope properly.
-        if k in
-           (K"let", K"for", K"function", K"struct", K"generator", K"while", K"macro", K"do") ||
-           # any child of `try` gets it's own individual scope (I think)
-           (parents_match(node, (K"try",)))
-            push!(scope_path, nodevalue(node).node)
-            # try to detect presence in RHS of inline function definition
-        elseif idx > 3 && k == K"=" && !isempty(args) &&
-               kind(first(args)) == K"call"
-            push!(scope_path, nodevalue(node).node)
-        end
+        push_scope_if_needed!(state, node, idx)
 
         # track which modules we are in
-        if k == K"module" # baremodules?
-            ids = filter(children(nodevalue(node))) do arg
-                return kind(arg.node) == K"Identifier"
-            end
-            if !isempty(ids)
-                push!(module_path, first(ids).node.val)
-            end
-            push!(scope_path, nodevalue(node).node)
-        end
+        track_module_path!(state, node)
 
         # figure out if our name (`nodevalue(leaf)`) is the LHS of an assignment
         # Note: this doesn't detect assignments to qualified variables (`X.y = rhs`)
         # but that's OK since we don't want to pick them up anyway.
-        if k == K"="
-            kids = children(nodevalue(node))
-            if !isempty(kids)
-                c = first(kids)
-                is_assignment |= c == nodevalue(leaf)
-            end
-        end
+        track_assignment_lhs!(state, node, leaf)
 
-        prev_node = node
         node = parent(node)
 
         # finished climbing to the root
         node === nothing &&
-            return (; function_arg, is_assignment, module_path, scope_path, struct_field_name,
-                    struct_field_or_type_param, for_loop_index, generator_index, catch_arg)
+            return (; leaf_flags.function_arg,
+                    is_assignment=state.is_assignment,
+                    module_path=state.module_path,
+                    scope_path=state.scope_path,
+                    leaf_flags.struct_field_name,
+                    leaf_flags.kwarg_name,
+                    leaf_flags.struct_field_or_type_param,
+                    leaf_flags.for_loop_index,
+                    leaf_flags.generator_index,
+                    leaf_flags.catch_arg,
+                    leaf_flags.default_param_ctx)
         idx += 1
     end
 end
@@ -552,10 +799,12 @@ function analyze_all_names(file)
                                  module_path::Vector{Symbol},
                                  scope_path::Vector{JuliaSyntax.SyntaxNode},
                                  struct_field_name::Bool,
+                                 kwarg_name::Bool,
                                  struct_field_or_type_param::Bool,
                                  for_loop_index::Bool,
                                  generator_index::Bool,
-                                 catch_arg::Bool}[]
+                                 catch_arg::Bool,
+                                 default_param_ctx::Union{Nothing,DefaultParamContext}}[]
 
     # we need to keep track of all names that we see, because we could
     # miss entire modules if it is an `include` we cannot follow.
@@ -609,7 +858,10 @@ function analyze_all_names(file)
     return analyze_per_usage_info(per_usage_info), untainted_modules
 end
 
-function is_name_internal_in_higher_local_scope(name, scope_path, seen)
+function is_name_internal_in_higher_local_scope(name, scope_path, seen; default_param_ctx=nothing)
+    if default_param_ctx !== nothing && name in default_param_ctx.visible_names
+        return true
+    end
     # We will recurse up the `scope_path`. Note the order is "reversed",
     # so the first entry of `scope_path` is deepest.
 
@@ -678,6 +930,13 @@ function analyze_per_usage_info(per_usage_info)
                                 external_global_name=missing,
                                 analysis_code=IgnoredImportRHS)
         end
+        if nt.kwarg_name
+            # Keyword argument and named tuple keys don't bind locals or count as usages.
+            external_global_name = false
+            return PerUsageInfo(; nt..., first_usage_in_scope=true,
+                                external_global_name,
+                                analysis_code=IgnoredKwargName)
+        end
         if nt.struct_field_name
             # Do not record struct field names in `seen`, otherwise they mask later
             # references with the same identifier in the surrounding scope.
@@ -715,7 +974,8 @@ function analyze_per_usage_info(per_usage_info)
         # * this was the first usage in this scope, but it could already be used in a "higher" local scope. It is possible we have not yet processed that scope fully but we will assume we have (TODO-someday). So we will recurse up and check if it is a local name there.
         if is_name_internal_in_higher_local_scope(nt.name,
                                                   nt.scope_path,
-                                                  seen)
+                                                  seen;
+                                                  default_param_ctx=nt.default_param_ctx)
             external_global_name = false
             push!(seen,
                   (; nt.name, scope_path=SyntaxNodeList(nt.scope_path)) => external_global_name)
