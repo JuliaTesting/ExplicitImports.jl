@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 jobs:
   test:
-    name: Integration ${{ matrix.version }} - ${{ matrix.os }} - ${{ github.event_name }}
+    name: Integration ${{ matrix.project }} - ${{ matrix.version }} - ${{ matrix.os }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -22,6 +22,8 @@ jobs:
           - '1' # current release
         os:
           - ubuntu-latest
+        project:
+          - Oceananigans
     steps:
       - uses: actions/checkout@v4
       # Using `juliaup` over `setup-julia` so we can access beta versions easier
@@ -31,4 +33,4 @@ jobs:
       - uses: julia-actions/cache@v1
       - uses: julia-actions/julia-buildpkg@v1
       - name: Integration tests
-        run: julia --project=integration integration/runtest.jl
+        run: julia --project=integration integration/runtest.jl ${{ matrix.project }}
