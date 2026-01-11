@@ -32,4 +32,4 @@ jobs:
           julia-version: ${{ matrix.version }}
       - uses: julia-actions/cache@v2
       - name: Integration tests
-        run: julia --project=integration integration/runtest.jl ${{ matrix.project }}
+        run: julia --color=yes --project=integration integration/runtest.jl ${{ matrix.project }}
