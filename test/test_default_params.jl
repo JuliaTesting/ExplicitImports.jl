@@ -266,4 +266,33 @@ end
         @test any(row -> row.analysis_code == ExplicitImports.InternalAssignment,
                   eachrow(usages))
     end
+
+    # Issue #98: Named tuple / kwarg with same name as imported function
+    # https://github.com/JuliaTesting/ExplicitImports.jl/issues/98
+    @testset "Issue 98: named tuple/kwarg shadowing" begin
+        @test check_no_stale_explicit_imports(TestModIssue98, TEST_FILE) === nothing
+        usages = get_usages(:getindex, [:TestModIssue98])
+        # Each of test, test2, test3 has a usage of getindex as kwarg name (not External)
+        # and as function call (should be External)
+        external_usages = subset(usages, :analysis_code => ByRow(==(ExplicitImports.External)))
+        # At least 3 external usages (one for each test function)
+        @test nrow(external_usages) >= 3
+    end
+
+    @testset "Issue 98: kwarg name alone is stale" begin
+        @test_throws ExplicitImports.StaleImportsException check_no_stale_explicit_imports(TestModIssue98KwargOnly,
+                                                                                           TEST_FILE)
+        usages = get_usages(:getindex, [:TestModIssue98KwargOnly])
+        external_usages = subset(usages, :analysis_code => ByRow(==(ExplicitImports.External)))
+        @test nrow(external_usages) == 0
+        @test all(row -> row.analysis_code == ExplicitImports.IgnoredKwargName, eachrow(usages))
+    end
+
+    @testset "Issue 98: kwarg shorthand uses value" begin
+        @test check_no_stale_explicit_imports(TestModIssue98Shorthand, TEST_FILE) === nothing
+        usages = get_usages(:getindex, [:TestModIssue98Shorthand])
+        external_usages = subset(usages, :analysis_code => ByRow(==(ExplicitImports.External)))
+        @test nrow(external_usages) == 2
+        @test nrow(usages) == 2
+    end
 end

@@ -2,7 +2,7 @@
 # We will do this by parsing, then re-implementing scoping rules on top of the parse tree.
 # See `src/parse_utilities.jl` for an overview of the strategy and the utility functions we will use.
 
-@enum AnalysisCode IgnoredNonFirst IgnoredQualified IgnoredImportRHS InternalHigherScope InternalFunctionArg InternalAssignment InternalStruct InternalForLoop InternalGenerator InternalCatchArgument External
+@enum AnalysisCode IgnoredNonFirst IgnoredQualified IgnoredImportRHS InternalHigherScope InternalFunctionArg InternalAssignment InternalStruct InternalForLoop InternalGenerator InternalCatchArgument External IgnoredKwargName
 
 const RECURSION_LIMIT = 100
 
@@ -37,6 +37,7 @@ Base.@kwdef struct PerUsageInfo
     module_path::Vector{Symbol}
     scope_path::Vector{JuliaSyntax.SyntaxNode}
     struct_field_name::Bool
+    kwarg_name::Bool
     struct_field_or_type_param::Bool
     for_loop_index::Bool
     generator_index::Bool
@@ -309,6 +310,24 @@ function is_struct_type_param(leaf)
     end
 end
 
+# Check if an identifier is a keyword argument name or named tuple field name.
+function is_kwarg_name(leaf)
+    kind(leaf) == K"Identifier" || return false
+    parents_match(leaf, (K"=",)) || return false
+    child_index(leaf) == 1 || return false
+
+    if parents_match(leaf, (K"=", K"parameters", K"call"))
+        call_node = get_parent(leaf, 3)
+        return function_def_scope_owner(call_node) === nothing
+    elseif parents_match(leaf, (K"=", K"parameters", K"tuple"))
+        return true
+    elseif parents_match(leaf, (K"=", K"tuple"))
+        return true
+    end
+
+    return false
+end
+
 # Check if an identifier is a type parameter being *defined* in a `where` clause.
 # e.g., in `function foo(x::T) where T`, the second `T` is the definition.
 # The `where` node has structure: (where <expr> <type_param1> <type_param2> ...)
@@ -452,9 +471,11 @@ end
 # Cache all leaf-specific facts up front so scope walking stays focused.
 function collect_leaf_flags(leaf)
     struct_field_name = is_struct_field_name(leaf)
+    kwarg_name = is_kwarg_name(leaf)
     return (;
             function_arg=is_function_definition_arg(leaf),
             struct_field_name,
+            kwarg_name,
             struct_field_or_type_param=is_struct_type_param(leaf) || struct_field_name ||
                                        is_where_type_param(leaf) ||
                                        is_bound_by_where_clause(leaf),
@@ -738,6 +759,7 @@ function analyze_name(leaf; debug=false)
                     module_path=state.module_path,
                     scope_path=state.scope_path,
                     leaf_flags.struct_field_name,
+                    leaf_flags.kwarg_name,
                     leaf_flags.struct_field_or_type_param,
                     leaf_flags.for_loop_index,
                     leaf_flags.generator_index,
@@ -777,6 +799,7 @@ function analyze_all_names(file)
                                  module_path::Vector{Symbol},
                                  scope_path::Vector{JuliaSyntax.SyntaxNode},
                                  struct_field_name::Bool,
+                                 kwarg_name::Bool,
                                  struct_field_or_type_param::Bool,
                                  for_loop_index::Bool,
                                  generator_index::Bool,
@@ -906,6 +929,13 @@ function analyze_per_usage_info(per_usage_info)
             return PerUsageInfo(; nt..., first_usage_in_scope=true,
                                 external_global_name=missing,
                                 analysis_code=IgnoredImportRHS)
+        end
+        if nt.kwarg_name
+            # Keyword argument and named tuple keys don't bind locals or count as usages.
+            external_global_name = false
+            return PerUsageInfo(; nt..., first_usage_in_scope=true,
+                                external_global_name,
+                                analysis_code=IgnoredKwargName)
         end
         if nt.struct_field_name
             # Do not record struct field names in `seen`, otherwise they mask later
