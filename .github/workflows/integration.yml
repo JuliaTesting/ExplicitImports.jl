@@ -1,0 +1,34 @@
+name: Integration
+on:
+  push:
+    branches:
+      - main
+    tags: ['*']
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  # Skip intermediate builds: always.
+  # Cancel intermediate builds: only if it is a pull request build.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+jobs:
+  test:
+    name: Integration ${{ matrix.version }} - ${{ matrix.os }} - ${{ github.event_name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - '1' # current release
+        os:
+          - ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Using `juliaup` over `setup-julia` so we can access beta versions easier
+      - uses: julia-actions/install-juliaup@v1
+        with:
+          julia-version: ${{ matrix.version }}
+      - uses: julia-actions/cache@v1
+      - uses: julia-actions/julia-buildpkg@v1
+      - name: Integration tests
+        run: julia --project=integration integration/runtest.jl
