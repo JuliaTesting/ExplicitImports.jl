@@ -769,6 +769,157 @@ function analyze_name(leaf; debug=false)
     end
 end
 
+function is_escaped_by_backslash(str, idx)
+    count = 0
+    j = prevind(str, idx)
+    while j >= firstindex(str)
+        str[j] == '\\' || break
+        count += 1
+        j = prevind(str, j)
+    end
+    return isodd(count)
+end
+
+is_identifier_start(c::Char) = Base.isidentifier(string(c))
+is_identifier_char(c::Char) = Base.isidentifier(string('_', c))
+
+function skip_quoted(str, idx, quote_char)
+    last = lastindex(str)
+    if quote_char == '"' &&
+       idx <= prevind(str, last, 2) &&
+       str[nextind(str, idx)] == '"' &&
+       str[nextind(str, idx, 2)] == '"'
+        i = nextind(str, idx, 3)
+        while i <= prevind(str, last, 2)
+            if str[i] == '"' &&
+               str[nextind(str, i)] == '"' &&
+               str[nextind(str, i, 2)] == '"'
+                return nextind(str, i, 3)
+            end
+            i = nextind(str, i)
+        end
+        return nextind(str, last)
+    end
+
+    i = nextind(str, idx)
+    while i <= last
+        if str[i] == quote_char && !is_escaped_by_backslash(str, i)
+            return nextind(str, i)
+        end
+        i = nextind(str, i)
+    end
+    return nextind(str, last)
+end
+
+function skip_comment(str, idx)
+    i = nextind(str, idx)
+    last = lastindex(str)
+    while i <= last && str[i] != '\n'
+        i = nextind(str, i)
+    end
+    return i
+end
+
+function find_matching_paren(str, start)
+    depth = 1
+    i = start
+    last = lastindex(str)
+    while i <= last
+        c = str[i]
+        if c == '"' || c == '\'' || c == '`'
+            i = skip_quoted(str, i, c)
+            continue
+        elseif c == '#'
+            i = skip_comment(str, i)
+            continue
+        elseif c == '('
+            depth += 1
+        elseif c == ')'
+            depth -= 1
+            depth == 0 && return i
+        end
+        i = nextind(str, i)
+    end
+    return nothing
+end
+
+function cmdstring_interpolations(str::AbstractString)
+    exprs = Any[]
+    i = firstindex(str)
+    last = lastindex(str)
+    while i <= last
+        if str[i] == '$' && !is_escaped_by_backslash(str, i)
+            next_idx = nextind(str, i)
+            if next_idx <= last && str[next_idx] == '('
+                start = nextind(str, next_idx)
+                end_idx = find_matching_paren(str, start)
+                if end_idx !== nothing
+                    expr = Meta.parse(str[start:prevind(str, end_idx)]; raise=false)
+                    if !(expr isa Expr && expr.head == :error)
+                        push!(exprs, expr)
+                    end
+                    i = nextind(str, end_idx)
+                    continue
+                end
+            elseif next_idx <= last && is_identifier_start(str[next_idx])
+                j = nextind(str, next_idx)
+                while j <= last && is_identifier_char(str[j])
+                    j = nextind(str, j)
+                end
+                push!(exprs, Symbol(str[next_idx:prevind(str, j)]))
+                i = j
+                continue
+            end
+        end
+        i = nextind(str, i)
+    end
+    return exprs
+end
+
+function append_cmdstring_interpolations!(per_usage_info, leaf)
+    exprs = cmdstring_interpolations(get_val(leaf))
+    isempty(exprs) && return nothing
+
+    outer = analyze_name(leaf)
+    outer_scope_path = outer.scope_path
+    outer_module_path = outer.module_path
+    wrapper = nodevalue(leaf)
+    location = location_str(wrapper)
+
+    for expr in exprs
+        expr_src = sprint(Base.show_unquoted, expr)
+        parsed = JuliaSyntax.parseall(JuliaSyntax.SyntaxNode, expr_src; ignore_warnings=true)
+        expr_wrapper = SyntaxNodeWrapper(parsed, wrapper.file, wrapper.bad_locations)
+        cursor = TreeCursor(expr_wrapper)
+        for expr_leaf in Leaves(cursor)
+            if nodevalue(expr_leaf) isa SkippedFile
+                continue
+            end
+            (kind(expr_leaf) in (K"Identifier", K"MacroName", K"StringMacroName"))::Bool ||
+                continue
+            parents_match(expr_leaf, (K"quote",)) &&
+                !parents_match(expr_leaf, (K"quote", K".")) && continue
+
+            name = get_val(expr_leaf)
+            qualified_by = qualifying_module(expr_leaf)
+            import_type = analyze_import_type(expr_leaf)
+            explicitly_imported_by = import_type == :import_RHS ? get_import_lhs(expr_leaf) : nothing
+            inner = analyze_name(expr_leaf)
+            scope_path = vcat(inner.scope_path, outer_scope_path)
+            push!(per_usage_info,
+                  (; name,
+                     qualified_by,
+                     import_type,
+                     explicitly_imported_by,
+                     location,
+                     inner...,
+                     module_path=outer_module_path,
+                     scope_path))
+        end
+    end
+    return outer_module_path
+end
+
 """
     analyze_all_names(file)
 
@@ -819,6 +970,12 @@ function analyze_all_names(file)
             # we start from the parent
             mod_path = analyze_name(parent(leaf)).module_path
             push!(tainted_modules, mod_path)
+            continue
+        end
+
+        if kind(leaf) == K"CmdString"
+            mod_path = append_cmdstring_interpolations!(per_usage_info, leaf)
+            mod_path === nothing || push!(seen_modules, mod_path)
             continue
         end
 
