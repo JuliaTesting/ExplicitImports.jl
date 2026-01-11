@@ -30,7 +30,7 @@ jobs:
       # Using `juliaup` over `setup-julia` so we can access beta versions easier
       - uses: julia-actions/install-juliaup@v2
         with:
-          julia-version: ${{ matrix.version }}
+          channel: ${{ matrix.version }}
       - uses: julia-actions/cache@v1
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
