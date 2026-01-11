@@ -26,12 +26,12 @@ jobs:
         os:
           - ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       # Using `juliaup` over `setup-julia` so we can access beta versions easier
       - uses: julia-actions/install-juliaup@v2
         with:
           channel: ${{ matrix.version }}
-      - uses: julia-actions/cache@v1
+      - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
@@ -46,8 +46,8 @@ jobs:
       pull-requests: read  # Required when using `push_preview=true`
       statuses: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v1
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v2
         with:
           version: '1'
       - name: Configure doc environment
