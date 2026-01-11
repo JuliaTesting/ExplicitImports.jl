@@ -4,7 +4,6 @@ version = "1.14.1"
 authors = ["Eric P. Hanson"]
 
 [deps]
-Issue79Pkg = "fa155e15-ec49-4eec-b540-f513de9043b2"
 Markdown = "d6f4376e-aef5-505a-96c1-9c027394607a"
 Pkg = "44cfe95a-1eb2-52ea-b672-e2afdf69b78f"
 PrecompileTools = "aea7be01-6a6a-4083-8856-8a6e6704d82a"
