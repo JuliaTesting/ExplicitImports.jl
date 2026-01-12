@@ -4,39 +4,23 @@ using Oceananigans, ExplicitImports, Test
 
     # https://github.com/CliMA/Oceananigans.jl/blob/8a67381e173a68e6538ab778f20c288761d014c1/test/test_quality_assurance.jl#L16-L73
     modules = (
-        Oceananigans.AbstractOperations,
-        # Oceananigans.Advection,
-        # Oceananigans.Architectures,
-        Oceananigans.Biogeochemistry,
-        # Oceananigans.BoundaryConditions,
-        Oceananigans.BuoyancyFormulations,
-        Oceananigans.Coriolis,
-        Oceananigans.Diagnostics,
-        # Oceananigans.DistributedComputations,
-        Oceananigans.Fields,
-        Oceananigans.Forcings,
-        # Oceananigans.Grids,
-        Oceananigans.ImmersedBoundaries,
-        # Oceananigans.Logger,
-        # Oceananigans.Models,
-        Oceananigans.Models.HydrostaticFreeSurfaceModels,
-        # Oceananigans.MultiRegion,
-        Oceananigans.Operators,
-        Oceananigans.OrthogonalSphericalShellGrids,
-        # Oceananigans.OutputReaders,
-        # Oceananigans.OutputWriters,
-        # Oceananigans.Simulations,
-        Oceananigans.Solvers,
-        # Oceananigans.StokesDrifts,
-        Oceananigans.TimeSteppers,
-        Oceananigans.TurbulenceClosures,
-        Oceananigans.Units,
-        Oceananigans.Utils,
+        Oceananigans.Advection,
+        Oceananigans.Architectures,
+        Oceananigans.BoundaryConditions,
+        Oceananigans.DistributedComputations,
+        Oceananigans.Grids,
+        Oceananigans.Logger,
+        Oceananigans.Models,
+        Oceananigans.MultiRegion,
+        Oceananigans.OutputReaders,
+        Oceananigans.OutputWriters,
+        Oceananigans.Simulations,
+        Oceananigans.StokesDrifts,
     )
 
-    @testset "Explicit Imports [$(mod)]" for mod in modules
-        @info "Testing no implicit imports for module $(mod)"
-        @test ExplicitImports.check_no_implicit_imports(mod) === nothing
+    @testset "Explicit Imports" begin
+        @info "Testing no implicit imports"
+        @test ExplicitImports.check_no_implicit_imports(Oceananigans; ignore=modules) === nothing
     end
 
     @testset "Import via Owner" begin
