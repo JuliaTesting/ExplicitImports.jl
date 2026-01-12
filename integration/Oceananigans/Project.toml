@@ -4,7 +4,8 @@ Oceananigans = "9e8cae18-63c1-5223-a75c-80ca9d6e9a09"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [compat]
-Oceananigans = "=0.103.1"
+Oceananigans = "=0.104.0"
 
 [sources]
 ExplicitImports = {path = "../.."}
+Oceananigans = {url = "https://github.com/CliMA/Oceananigans.jl.git", rev = "a9a1302ee3e53e479185d7e987cb83a4a0a391e1"}
