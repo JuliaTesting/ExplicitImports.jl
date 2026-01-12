@@ -12,7 +12,6 @@ function askwargs(flag::Bool)
     return NamedTuple()
 end
 
-# TODO: kwargs named test or check?
 # NOTE: docstring lives in the main package under `test_explicit_imports`
 function ExplicitImports._test_explicit_imports(package::Module, file=pathof(mod);
                                                 no_implicit_imports=true,
