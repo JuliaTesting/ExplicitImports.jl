@@ -1,8 +1,3 @@
-module TestExt
-using ExplicitImports
-using ExplicitImports: check_file, choose_exporter
-using Test
-
 # Borrowed from Aqua.jl
 askwargs(kwargs) = (; kwargs...)
 function askwargs(flag::Bool)
@@ -11,8 +6,6 @@ function askwargs(flag::Bool)
     end
     return NamedTuple()
 end
-
-# NOTE: docstring lives in the main package under `test_explicit_imports`
 function test_no_implicit_imports(package::Module, file=pathof(mod); kwargs...)
     @testset "No implicit imports" begin
         ex = check_no_implicit_imports(package, file; throw=false, kwargs...)
@@ -109,14 +102,47 @@ function test_no_self_qualified_accesses(package::Module, file=pathof(mod); kwar
     end
 end
 
-function ExplicitImports._test_explicit_imports(package::Module, file=pathof(mod);
-                                                no_implicit_imports=true,
-                                                no_stale_explicit_imports=true,
-                                                all_explicit_imports_via_owners=true,
-                                                all_explicit_imports_are_public=true,
-                                                all_qualified_accesses_via_owners=true,
-                                                all_qualified_accesses_are_public=true,
-                                                no_self_qualified_accesses=true)
+
+
+"""
+    test_explicit_imports(package::Module, file=pathof(package); kw...)
+
+Run the following checks:
+
+* [`check_no_implicit_imports`](@ref)
+* [`check_no_stale_explicit_imports`](@ref)
+* [`check_all_explicit_imports_via_owners`](@ref)
+* [`check_all_explicit_imports_are_public`](@ref)
+* [`check_all_qualified_accesses_via_owners`](@ref)
+* [`check_all_qualified_accesses_are_public`](@ref)
+* [`check_no_self_qualified_accesses`](@ref)
+
+The keyword argument `\$x` (e.g., `no_implicit_imports`) can be used to
+control whether or not to run `check_\$x` (e.g., `check_no_implicit_imports`).
+If `check_\$x` supports keyword arguments, a `NamedTuple` can also be
+passed to `\$x` to specify the keyword arguments for `check_\$x`.
+
+!!! note
+    The function requires the stdlib Test to be loaded (e.g. `using Test`).
+
+# Keyword Arguments
+
+- `no_implicit_imports=true`
+- `no_stale_explicit_imports=true`
+- `all_explicit_imports_via_owners=true`
+- `all_explicit_imports_are_public=true`
+- `all_qualified_accesses_via_owners=true`
+- `all_qualified_accesses_are_public=true`
+- `no_self_qualified_accesses=true`
+"""
+function test_explicit_imports(package::Module, file=pathof(package);
+                                no_implicit_imports=true,
+                                no_stale_explicit_imports=true,
+                                all_explicit_imports_via_owners=true,
+                                all_explicit_imports_are_public=true,
+                                all_qualified_accesses_via_owners=true,
+                                all_qualified_accesses_are_public=true,
+                                no_self_qualified_accesses=true)
     check_file(file)
 
     @testset "ExplicitImports" begin
@@ -154,5 +180,3 @@ function ExplicitImports._test_explicit_imports(package::Module, file=pathof(mod
         end
     end
 end
-
-end # TestExt

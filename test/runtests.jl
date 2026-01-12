@@ -154,11 +154,8 @@ include("issue_140.jl")
 
     @testset "test_explicit_imports output" begin
         # Here we run each test individually and check that we are getting out our nice expressions that try to convey what is happening
-        test_ext_module = Base.get_extension(ExplicitImports, :TestExt)
-        @test test_ext_module !== nothing
-
         no_implicit_imports_failures = failing_expressions() do
-            test_explicit_imports(test_ext_module, joinpath(pkgdir(ExplicitImports), "ext", "TestExt.jl");
+            test_explicit_imports(TestMod1, "test_mods.jl";
                                   no_implicit_imports=true,
                                   no_stale_explicit_imports=false,
                                   all_explicit_imports_via_owners=false,
