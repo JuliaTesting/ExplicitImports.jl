@@ -40,7 +40,7 @@ function ExplicitImports._test_explicit_imports(package::Module, file=pathof(mod
                         @test isempty(unanalyzable_modules)
                     end
                 else
-                    missing_explicit_imports = ["using $(choose_exporter(row.name, row.exporters)): $(row.name) # at $(row.location)" for row in ex.names]
+                    missing_explicit_imports = ["using $(choose_exporter(row.name, row.exporters)): $(row.name) # used at $(row.location)" for row in ex.names]
                     if VERSION >= v"1.14"
                         @test isempty(missing_explicit_imports) context=ex.mod
                     else
