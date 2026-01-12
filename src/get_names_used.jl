@@ -769,115 +769,81 @@ function analyze_name(leaf; debug=false)
     end
 end
 
-function is_escaped_by_backslash(str, idx)
-    count = 0
-    j = prevind(str, idx)
-    while j >= firstindex(str)
-        str[j] == '\\' || break
-        count += 1
-        j = prevind(str, j)
+function cmdstring_parent(leaf)
+    node = leaf
+    while true
+        kind(node) == K"cmdstring" && return node
+        has_parent(node) || return nothing
+        node = parent(node)
     end
-    return isodd(count)
 end
 
-is_identifier_start(c::Char) = Base.isidentifier(string(c))
-is_identifier_char(c::Char) = Base.isidentifier(string('_', c))
+function unwrap_toplevel_expr(expr)
+    if expr isa Expr && expr.head == :toplevel && length(expr.args) == 1
+        return expr.args[1]
+    end
+    return expr
+end
 
-function skip_quoted(str, idx, quote_char)
-    last = lastindex(str)
-    if quote_char == '"' &&
-       idx <= prevind(str, last, 2) &&
-       str[nextind(str, idx)] == '"' &&
-       str[nextind(str, idx, 2)] == '"'
-        i = nextind(str, idx, 3)
-        while i <= prevind(str, last, 2)
-            if str[i] == '"' &&
-               str[nextind(str, i)] == '"' &&
-               str[nextind(str, i, 2)] == '"'
-                return nextind(str, i, 3)
+function cmdstring_string_literal(expr)
+    expr = unwrap_toplevel_expr(expr)
+    if expr isa Expr && expr.head == :macrocall
+        for arg in expr.args[2:end]
+            arg isa LineNumberNode && continue
+            if arg isa String
+                return arg
+            elseif arg isa Expr && arg.head == :string
+                all(x -> x isa String, arg.args) || return nothing
+                return join(arg.args)
             end
-            i = nextind(str, i)
         end
-        return nextind(str, last)
-    end
-
-    i = nextind(str, idx)
-    while i <= last
-        if str[i] == quote_char && !is_escaped_by_backslash(str, i)
-            return nextind(str, i)
-        end
-        i = nextind(str, i)
-    end
-    return nextind(str, last)
-end
-
-function skip_comment(str, idx)
-    i = nextind(str, idx)
-    last = lastindex(str)
-    while i <= last && str[i] != '\n'
-        i = nextind(str, i)
-    end
-    return i
-end
-
-function find_matching_paren(str, start)
-    depth = 1
-    i = start
-    last = lastindex(str)
-    while i <= last
-        c = str[i]
-        if c == '"' || c == '\'' || c == '`'
-            i = skip_quoted(str, i, c)
-            continue
-        elseif c == '#'
-            i = skip_comment(str, i)
-            continue
-        elseif c == '('
-            depth += 1
-        elseif c == ')'
-            depth -= 1
-            depth == 0 && return i
-        end
-        i = nextind(str, i)
+        return nothing
+    elseif expr isa String
+        return expr
     end
     return nothing
 end
 
-function cmdstring_interpolations(str::AbstractString)
-    exprs = Any[]
-    i = firstindex(str)
-    last = lastindex(str)
-    while i <= last
-        if str[i] == '$' && !is_escaped_by_backslash(str, i)
-            next_idx = nextind(str, i)
-            if next_idx <= last && str[next_idx] == '('
-                start = nextind(str, next_idx)
-                end_idx = find_matching_paren(str, start)
-                if end_idx !== nothing
-                    expr = Meta.parse(str[start:prevind(str, end_idx)]; raise=false)
-                    if !(expr isa Expr && expr.head == :error)
-                        push!(exprs, expr)
-                    end
-                    i = nextind(str, end_idx)
-                    continue
-                end
-            elseif next_idx <= last && is_identifier_start(str[next_idx])
-                j = nextind(str, next_idx)
-                while j <= last && is_identifier_char(str[j])
-                    j = nextind(str, j)
-                end
-                push!(exprs, Symbol(str[next_idx:prevind(str, j)]))
-                i = j
-                continue
-            end
+function collect_shell_interpolations!(exprs, part)
+    if part isa Expr && part.head == :tuple
+        for item in part.args
+            collect_shell_interpolations!(exprs, item)
         end
-        i = nextind(str, i)
+    elseif part isa AbstractString
+        return nothing
+    else
+        push!(exprs, part)
     end
+    return nothing
+end
+
+# Parse the full cmd literal once so interpolation extraction follows Julia's grammar.
+function cmdstring_interpolations_from_source(cmd_src::AbstractString)
+    expr = Meta.parse(cmd_src; raise=false)
+    expr isa Expr && expr.head == :error && return Any[]
+    cmd_str = cmdstring_string_literal(expr)
+    cmd_str === nothing && return Any[]
+    parsed = try
+        Base.shell_parse(cmd_str; special=Base.shell_special)[1]
+    catch
+        return Any[]
+    end
+    exprs = Any[]
+    collect_shell_interpolations!(exprs, parsed)
     return exprs
 end
 
-function append_cmdstring_interpolations!(per_usage_info, leaf)
-    exprs = cmdstring_interpolations(get_val(leaf))
+function append_cmdstring_interpolations!(per_usage_info, leaf, processed_cmdstrings)
+    cmd_node = cmdstring_parent(leaf)
+    cmd_node === nothing && return nothing
+    cmd_id = objectid(js_node(cmd_node))
+    if cmd_id in processed_cmdstrings
+        return nothing
+    end
+    push!(processed_cmdstrings, cmd_id)
+
+    cmd_src = String(JuliaSyntax.sourcetext(js_node(cmd_node)))
+    exprs = cmdstring_interpolations_from_source(cmd_src)
     isempty(exprs) && return nothing
 
     outer = analyze_name(leaf)
@@ -964,6 +930,7 @@ function analyze_all_names(file)
     # safe to analyze.
     seen_modules = Set{Vector{Symbol}}()
     tainted_modules = Set{Vector{Symbol}}()
+    processed_cmdstrings = Set{UInt}()
 
     for leaf in Leaves(cursor)
         if nodevalue(leaf) isa SkippedFile
@@ -974,7 +941,9 @@ function analyze_all_names(file)
         end
 
         if kind(leaf) == K"CmdString"
-            mod_path = append_cmdstring_interpolations!(per_usage_info, leaf)
+            mod_path = append_cmdstring_interpolations!(per_usage_info,
+                                                        leaf,
+                                                        processed_cmdstrings)
             mod_path === nothing || push!(seen_modules, mod_path)
             continue
         end
