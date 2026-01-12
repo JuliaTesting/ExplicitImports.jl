@@ -17,7 +17,7 @@ function stale_explicit_imports_nonrecursive(mod::Module, file=pathof(mod);
     check_file(file)
     @warn "[stale_explicit_imports_nonrecursive] deprecated in favor of `improper_explicit_imports_nonrecursive`" _id = :explicit_imports_stale_explicit_imports maxlog = 1
 
-    @compat (; unnecessary_explicit_import, tainted) = filter_to_module(file_analysis, mod)
+    (; unnecessary_explicit_import, tainted) = filter_to_module(file_analysis, mod)
     tainted && strict && return nothing
     ret = [(; nt.name, nt.location) for nt in unnecessary_explicit_import]
     return unique!(nt -> nt.name, sort!(ret))

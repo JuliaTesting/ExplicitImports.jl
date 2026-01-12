@@ -74,3 +74,25 @@ explicit_imports_nonrecursive
 improper_qualified_accesses_nonrecursive
 improper_explicit_imports_nonrecursive
 ```
+
+## Advanced: telling ExplicitImports to ignore parts of source code
+
+You can use the `#! explicit-imports: off` and `#! explicit-imports: on` comments to disable/enable ExplicitImports from looking at parts of the code. For example, if you don't want ExplicitImports to recurse into some file, you could turn it off with:
+
+```julia
+using Foo # will be checked for implicit imports
+
+#! explicit-imports: off
+include("file.jl") # won't be checked
+#! explicit-imports: on
+
+using Bar # again will be checked
+```
+
+Note that this can of course compromise the analysis. If packages are loaded but ExplicitImports can't see them (as it has been turned off) then it will not know where the names came from. User beware!
+
+This can be paired with telling ExplicitImports to ignore submodules via [`ExplicitImports.ignore_submodules`](@ref):
+
+```@docs
+ExplicitImports.ignore_submodules
+```

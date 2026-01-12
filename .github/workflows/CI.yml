@@ -13,30 +13,29 @@ concurrency:
   cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
 jobs:
   test:
-    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ matrix.arch }} - ${{ github.event_name }}
+    name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ github.event_name }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
         version:
-          - '1.6' # earliest supported version
-          - '1.7' # earliest version all tests run on
+          - '1.10' # earliest supported version
           - '1' # current release
           - 'beta'
           - 'nightly'
         os:
           - ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       # Using `juliaup` over `setup-julia` so we can access beta versions easier
-      - uses: julia-actions/install-juliaup@v1
+      - uses: julia-actions/install-juliaup@v2
         with:
-          julia-version: ${{ matrix.version }}
-      - uses: julia-actions/cache@v1
+          channel: ${{ matrix.version }}
+      - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-buildpkg@v1
       - uses: julia-actions/julia-runtest@v1
       - uses: julia-actions/julia-processcoverage@v1
-      - uses: codecov/codecov-action@v3
+      - uses: codecov/codecov-action@v5
         with:
           files: lcov.info
   docs:
@@ -47,8 +46,8 @@ jobs:
       pull-requests: read  # Required when using `push_preview=true`
       statuses: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: julia-actions/setup-julia@v1
+      - uses: actions/checkout@v6
+      - uses: julia-actions/setup-julia@v2
         with:
           version: '1'
       - name: Configure doc environment

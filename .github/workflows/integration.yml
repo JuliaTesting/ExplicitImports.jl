@@ -1,0 +1,36 @@
+name: Integration
+on:
+  push:
+    branches:
+      - main
+    tags: ['*']
+  pull_request:
+  workflow_dispatch:
+concurrency:
+  # Skip intermediate builds: always.
+  # Cancel intermediate builds: only if it is a pull request build.
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ startsWith(github.ref, 'refs/pull/') }}
+jobs:
+  test:
+    name: ${{ matrix.project }} (Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ github.event_name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        version:
+          - '1' # current release
+        os:
+          - ubuntu-latest
+        project:
+          - Oceananigans
+          - Ferrite
+    steps:
+      - uses: actions/checkout@v6
+      # Using `juliaup` over `setup-julia` so we can access beta versions easier
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: ${{ matrix.version }}
+      - uses: julia-actions/cache@v2
+      - name: Integration tests
+        run: julia --color=yes --project=integration integration/runtest.jl ${{ matrix.project }}

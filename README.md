@@ -1,8 +1,8 @@
 # ExplicitImports
 
-[![stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://ericphanson.github.io/ExplicitImports.jl/stable/)
-[![Build Status](https://github.com/ericphanson/ExplicitImports.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/ericphanson/ExplicitImports.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![Coverage](https://codecov.io/gh/ericphanson/ExplicitImports.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/ericphanson/ExplicitImports.jl)
+[![stable](https://img.shields.io/badge/docs-stable-blue.svg)](https://JuliaTesting.github.io/ExplicitImports.jl/stable/)
+[![Build Status](https://github.com/JuliaTesting/ExplicitImports.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/JuliaTesting/ExplicitImports.jl/actions/workflows/CI.yml?query=branch%3Amain)
+[![Coverage](https://codecov.io/gh/JuliaTesting/ExplicitImports.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/JuliaTesting/ExplicitImports.jl)
 
 ## Quickstart
 
@@ -68,45 +68,116 @@ Personally, I don't think this is always a huge issue, and that it's basically f
 julia> using ExplicitImports
 
 julia> print_explicit_imports(ExplicitImports)
-WARNING: both JuliaSyntax and Base export "parse"; uses of it in module ExplicitImports must be qualified
-  Module ExplicitImports is relying on implicit imports for 7 names. These could be explicitly imported as follows:
+  Module ExplicitImports is not relying on any implicit imports.
 
-  using AbstractTrees: AbstractTrees, Leaves, TreeCursor, children, nodevalue
-  using JuliaSyntax: JuliaSyntax, @K_str
+  However, module ExplicitImports has stale explicit imports for this 1 unused name:
+
+    •  parse is unused but it was imported from ExplicitImports.Vendored.JuliaSyntax at
+       /Users/eph/ExplicitImports/src/ExplicitImports.jl:9:30
 
   Additionally, module ExplicitImports has 1 self-qualified access:
 
-    •  parent was accessed as ExplicitImports.parent inside ExplicitImports at /Users/eph/ExplicitImports/src/deprecated.jl:79:21
-
-  Additionally, module ExplicitImports accesses 1 name from non-owner modules:
-
-    •  parent has owner AbstractTrees but it was accessed from ExplicitImports at
+    •  parent was accessed as ExplicitImports.parent inside ExplicitImports at
        /Users/eph/ExplicitImports/src/deprecated.jl:79:21
-````
 
-Note: the `WARNING` is more or less harmless; the way this package is written, it will happen any time there is a clash, even if that clash is not realized in your code. I cannot figure out how to suppress it.
+  Additionally, module ExplicitImports accesses 13 non-public names:
+
+    •  Code is not public in Markdown but it was accessed via Markdown at
+       /Users/eph/ExplicitImports/src/precompile.jl:8:51
+
+    •  List is not public in Markdown but it was accessed via Markdown at
+       /Users/eph/ExplicitImports/src/precompile.jl:10:51
+
+    •  Paragraph is not public in Markdown but it was accessed via Markdown at
+       /Users/eph/ExplicitImports/src/precompile.jl:9:51
+
+    •  PkgId is not public in Base but it was accessed via Base at
+       /Users/eph/ExplicitImports/src/improper_explicit_imports.jl:153:18
+
+    •  Types is not public in Pkg but it was accessed via Pkg at
+       /Users/eph/ExplicitImports/src/main.jl:54:25
+
+    •  ioproperties is not public in Base but it was accessed via Base at
+       /Users/eph/ExplicitImports/src/main.jl:45:25
+
+    •  loaded_modules is not public in Base but it was accessed via Base at
+       /Users/eph/ExplicitImports/src/improper_explicit_imports.jl:154:23
+
+    •  loaded_modules_array is not public in Base but it was accessed via Base at
+       /Users/eph/ExplicitImports/src/ExplicitImports.jl:414:21
+
+    •  maybe_root_module is not public in Base but it was accessed via Base at
+       /Users/eph/ExplicitImports/src/improper_explicit_imports.jl:54:47
+
+    •  parent is not public in ExplicitImports but it was accessed via ExplicitImports at
+       /Users/eph/ExplicitImports/src/deprecated.jl:79:21
+
+    •  parse is not public in Markdown but it was accessed via Markdown at
+       /Users/eph/ExplicitImports/src/interactive_usage.jl:231:19
+
+    •  set_active_project is not public in Base but it was accessed via Base at
+       /Users/eph/ExplicitImports/src/main.jl:66:22
+
+    •  term is not public in Markdown but it was accessed via Markdown at
+       /Users/eph/ExplicitImports/src/precompile.jl:10:25
+````
 
 You can also pass `show_locations=true` for more details:
 
 ````julia
-  Module ExplicitImports is relying on implicit imports for 7 names. These could be explicitly imported as follows:
+julia> print_explicit_imports(ExplicitImports; show_locations=true)
+  Module ExplicitImports is not relying on any implicit imports.
 
-  using AbstractTrees: AbstractTrees # used at /Users/eph/ExplicitImports/src/parse_utilities.jl:51:10
-  using AbstractTrees: Leaves # used at /Users/eph/ExplicitImports/src/get_names_used.jl:453:17
-  using AbstractTrees: TreeCursor # used at /Users/eph/ExplicitImports/src/parse_utilities.jl:129:18
-  using AbstractTrees: children # used at /Users/eph/ExplicitImports/src/get_names_used.jl:380:26
-  using AbstractTrees: nodevalue # used at /Users/eph/ExplicitImports/src/get_names_used.jl:359:16
-  using JuliaSyntax: JuliaSyntax # used at /Users/eph/ExplicitImports/src/get_names_used.jl:439:53
-  using JuliaSyntax: @K_str # used at /Users/eph/ExplicitImports/src/get_names_used.jl:299:33
+  However, module ExplicitImports has stale explicit imports for this 1 unused name:
+
+    •  parse is unused but it was imported from ExplicitImports.Vendored.JuliaSyntax at
+       /Users/eph/ExplicitImports/src/ExplicitImports.jl:9:30
 
   Additionally, module ExplicitImports has 1 self-qualified access:
 
-    •  parent was accessed as ExplicitImports.parent inside ExplicitImports at /Users/eph/ExplicitImports/src/deprecated.jl:79:21
-
-  Additionally, module ExplicitImports accesses 1 name from non-owner modules:
-
-    •  parent has owner AbstractTrees but it was accessed from ExplicitImports at
+    •  parent was accessed as ExplicitImports.parent inside ExplicitImports at
        /Users/eph/ExplicitImports/src/deprecated.jl:79:21
+
+  Additionally, module ExplicitImports accesses 13 non-public names:
+
+    •  Code is not public in Markdown but it was accessed via Markdown at
+       /Users/eph/ExplicitImports/src/precompile.jl:8:51
+
+    •  List is not public in Markdown but it was accessed via Markdown at
+       /Users/eph/ExplicitImports/src/precompile.jl:10:51
+
+    •  Paragraph is not public in Markdown but it was accessed via Markdown at
+       /Users/eph/ExplicitImports/src/precompile.jl:9:51
+
+    •  PkgId is not public in Base but it was accessed via Base at
+       /Users/eph/ExplicitImports/src/improper_explicit_imports.jl:153:18
+
+    •  Types is not public in Pkg but it was accessed via Pkg at
+       /Users/eph/ExplicitImports/src/main.jl:54:25
+
+    •  ioproperties is not public in Base but it was accessed via Base at
+       /Users/eph/ExplicitImports/src/main.jl:45:25
+
+    •  loaded_modules is not public in Base but it was accessed via Base at
+       /Users/eph/ExplicitImports/src/improper_explicit_imports.jl:154:23
+
+    •  loaded_modules_array is not public in Base but it was accessed via Base at
+       /Users/eph/ExplicitImports/src/ExplicitImports.jl:414:21
+
+    •  maybe_root_module is not public in Base but it was accessed via Base at
+       /Users/eph/ExplicitImports/src/improper_explicit_imports.jl:54:47
+
+    •  parent is not public in ExplicitImports but it was accessed via ExplicitImports at
+       /Users/eph/ExplicitImports/src/deprecated.jl:79:21
+
+    •  parse is not public in Markdown but it was accessed via Markdown at
+       /Users/eph/ExplicitImports/src/interactive_usage.jl:231:19
+
+    •  set_active_project is not public in Base but it was accessed via Base at
+       /Users/eph/ExplicitImports/src/main.jl:66:22
+
+    •  term is not public in Markdown but it was accessed via Markdown at
+       /Users/eph/ExplicitImports/src/precompile.jl:10:25
 ````
 
 Note the paths of course will differ depending on the location of the code on your system.
@@ -119,19 +190,18 @@ This can be handy for debugging; if you find that in fact ExplicitImports thinks
 
 ExplicitImports provides an experimental CLI application using the brand-new "apps" functionality from Pkg, available with Julia v1.12.
 
-If you use [juliaup](https://github.com/JuliaLang/juliaup) you can install Julia v1.12 with `juliaup add nightly`, and then run
+If you use [juliaup](https://github.com/JuliaLang/juliaup) you can install Julia v1.12 with `juliaup add 1.12`, and then run
 
 ```sh
-julia +nightly --startup-file=no -e 'using Pkg; Pkg.activate(temp=true); Pkg.Apps.add("ExplicitImports")'
+julia +1.12 --startup-file=no -e 'using Pkg; Pkg.activate(temp=true); Pkg.Apps.add("ExplicitImports")'
 ```
 to install a CLI executable `explicit-imports-jl` to the bin directory in your Julia depot (`~/.julia` by default). You will likely need to add your bin directory to your PATH, e.g.
 
 ```sh
-export PATH="/Users/eph/.julia/bin:$PATH"
+export PATH="${HOME}/.julia/bin:${PATH}"
 ```
 
 which can go in a shell startup script (e.g. `~/.bashrc` or `~/.zshrc`).
-
 
 Then you can run e.g.
 
@@ -225,7 +295,7 @@ Another way to use ExplicitImports is with [pre-commit](https://pre-commit.com/)
 Simply add the following to `.pre-commit-config.yaml`:
 
 ```yaml
-- repo: https://github.com/ericphanson/ExplicitImports.jl
+- repo: https://github.com/JuliaTesting/ExplicitImports.jl
   rev: v1.10.0
   hooks:
     - id: explicit-imports
@@ -256,7 +326,7 @@ Known issues:
 - multi-argument `include` calls are ignored
 - In Julia, `include` adds the included code at top-level in the module in which it is called. Here, when `include` is called within a local scope, all of the code being included is treated as being within that local scope.
 - quoted code (e.g. when building Julia expressions programmatically) may be analyzed incorrectly
-- default values in function definitions can be incorrectly treated as local variables ([#62](https://github.com/ericphanson/ExplicitImports.jl/issues/62))
+- default values in function definitions can be incorrectly treated as local variables ([#62](https://github.com/JuliaTesting/ExplicitImports.jl/issues/62))
 
 The consequence of these issues is that ExplicitImports may misunderstand whether or not a particular name refers to a local variable or a global one, and thus whether or not some particular implicitly-available name (exported by some module) is in fact being used. This could cause it to suggest an unnecessary explicit import, fail to suggest an explicit import, or to falsely claim that an explicit import is stale.
 

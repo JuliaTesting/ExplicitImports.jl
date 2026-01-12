@@ -5,14 +5,17 @@ function analyze_qualified_names(mod::Module, file=pathof(mod);
                                  # private undocumented kwarg for hoisting this analysis
                                  file_analysis=get_names_used(file))
     check_file(file)
-    @compat (; per_usage_info, tainted) = filter_to_module(file_analysis, mod)
+    (; per_usage_info, tainted) = filter_to_module(file_analysis, mod)
     # Do we want to do anything with `tainted`? This means there is unanalyzable code here
     # Probably that means we could miss qualified names to report, but not that
     # something there would invalidate the qualified names with issues we did find.
     # For now let's ignore it.
 
+    @debug "[analyze_qualified_names] per_usage_info has $(length(per_usage_info)) rows"
     # Filter to qualified names
     qualified = [row for row in per_usage_info if row.qualified_by !== nothing]
+
+    @debug "[analyze_qualified_names] qualified has $(length(qualified)) rows"
 
     # which are in our module
     mod_path = module_path(mod)
@@ -54,7 +57,7 @@ end
 function process_qualified_row(row, mod)
     # for JET
     @assert !isnothing(row.qualified_by)
-    
+
     isempty(row.qualified_by) && return nothing
     current_mod = mod
     for submod in row.qualified_by
@@ -120,9 +123,7 @@ julia> (; row.name, row.accessing_from, row.whichmodule)
 ```
 """
 function improper_qualified_accesses_nonrecursive(mod::Module, file=pathof(mod);
-                                                  skip=(Base => Core,
-                                                        Compat => Base,
-                                                        Compat => Core),
+                                                  skip=get_default_skip_pairs(),
                                                   allow_internal_accesses=true,
                                                   # deprecated, does nothing
                                                   require_submodule_access=nothing,
@@ -218,9 +219,7 @@ julia> (; row.name, row.accessing_from, row.whichmodule)
 ```
 """
 function improper_qualified_accesses(mod::Module, file=pathof(mod);
-                                     skip=(Base => Core,
-                                           Compat => Base,
-                                           Compat => Core),
+                                     skip=get_default_skip_pairs(),
                                      allow_internal_accesses=true,
                                      # deprecated
                                      require_submodule_access=nothing)

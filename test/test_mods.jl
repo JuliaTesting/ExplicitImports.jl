@@ -39,12 +39,12 @@ struct Unrelated2{Y<:AbstractArray}
     x::Y
 end
 
-# https://github.com/ericphanson/ExplicitImports.jl/issues/34
+# https://github.com/JuliaTesting/ExplicitImports.jl/issues/34
 struct Bar{QR}
     x::QR
 end
 
-# https://github.com/ericphanson/ExplicitImports.jl/issues/36
+# https://github.com/JuliaTesting/ExplicitImports.jl/issues/36
 struct Foo
     qr::Int
 end
@@ -55,32 +55,30 @@ end
 
 end # TestMod5
 
-@static if VERSION >= v"1.7-"
-    @eval module TestMod6
+module TestMod6
 
-    using LinearAlgebra
-    using Compat: @compat
+using LinearAlgebra
+using Compat: @compat
 
-    function foo(x)
-        for (i, I) in pairs(x)
-            # this next one is very tricky, since we need to both identify `j`
-            # as a for "argument", and note that `I` is a local variable from
-            # one scope up.
-            for j in I
-            end
-        end
-        for (; k) in x
-        end
-
-        for (; k) in x, (; j) in y
-        end
-
-        for xi in x, yi in y
+function foo(x)
+    for (i, I) in pairs(x)
+        # this next one is very tricky, since we need to both identify `j`
+        # as a for "argument", and note that `I` is a local variable from
+        # one scope up.
+        for j in I
         end
     end
+    for (; k) in x
+    end
 
-    end # TestMod6
+    for (; k) in x, (; j) in y
+    end
+
+    for xi in x, yi in y
+    end
 end
+
+end # TestMod6
 
 module TestMod7
 
@@ -105,39 +103,37 @@ end # TestMod7
 module TestMod8
 using LinearAlgebra
 
-# https://github.com/ericphanson/ExplicitImports.jl/issues/33
+# https://github.com/JuliaTesting/ExplicitImports.jl/issues/33
 foo(::QR) = ()
 
 end # TestMod8
 
-@static if VERSION >= v"1.7-"
-    @eval module TestMod9
+module TestMod9
 
-    using LinearAlgebra
+using LinearAlgebra
 
-    function foo(x)
-        [x for (i1, I) in pairs(x)]
-        (x for (i2, I) in pairs(x))
-        [x for (i3, I) in pairs(x) if I == 1]
-        (x for (i4, I) in pairs(x) if I == 1)
+function foo(x)
+    [x for (i1, I) in pairs(x)]
+    (x for (i2, I) in pairs(x))
+    [x for (i3, I) in pairs(x) if I == 1]
+    (x for (i4, I) in pairs(x) if I == 1)
 
-        [x for (; i1, I) in pairs(x)]
-        (x for (; i2, I) in pairs(x))
-        [x for (; i3, I) in pairs(x) if (I, 1) == 1]
-        (x for (; i4, I) in pairs(x) if (I, 1) == 1)
+    [x for (; i1, I) in pairs(x)]
+    (x for (; i2, I) in pairs(x))
+    [x for (; i3, I) in pairs(x) if (I, 1) == 1]
+    (x for (; i4, I) in pairs(x) if (I, 1) == 1)
 
-        [x for i1 in x, I in x]
-        (x for i1 in x, I in x)
+    [x for i1 in x, I in x]
+    (x for i1 in x, I in x)
 
-        [x for i1 in x, I in x if I == 1]
-        (x for i1 in x, I in x if I == 1)
+    [x for i1 in x, I in x if I == 1]
+    (x for i1 in x, I in x if I == 1)
 
-        # Here we want to be sure that `y` does not match!
-        return (x for i1 in x, I in x if (y = 1) == 1)
-    end
-
-    end # TestMod9
+    # Here we want to be sure that `y` does not match!
+    return (x for i1 in x, I in x if (y = 1) == 1)
 end
+
+end # TestMod9
 
 module TestMod10
 
@@ -154,40 +150,38 @@ end
 
 end # TestMod10
 
-@static if VERSION > v"1.7-"
-    @eval module TestMod11
+module TestMod11
 
-    using LinearAlgebra
+using LinearAlgebra
 
-    function foo(f)
-        # This `I` is a local variable!
-        f() do I
-            return I + 1
-        end
-
-        # These are locals too, but in different scopes
-        f() do I, svd
-            return I + 1
-        end
-
-        # global, despite a local of the same name ocuring in a different scope above
-        svd
-
-        f() do (; I, z)
-            return I + 1
-        end
-
-        # This name is external
-        Hermitian() do I
-            return I + 1
-        end
-
-        # Non-first invocation of `Hermitian`
-        return Hermitian
+function foo(f)
+    # This `I` is a local variable!
+    f() do I
+        return I + 1
     end
 
-    end # TestMod11
+    # These are locals too, but in different scopes
+    f() do I, svd
+        return I + 1
+    end
+
+    # global, despite a local of the same name ocuring in a different scope above
+    svd
+
+    f() do (; I, z)
+        return I + 1
+    end
+
+    # This name is external
+    Hermitian() do I
+        return I + 1
+    end
+
+    # Non-first invocation of `Hermitian`
+    return Hermitian
 end
+
+end # TestMod11
 
 module TestMod12
 
@@ -217,7 +211,7 @@ end
 
 end # TestMod12
 
-# https://github.com/ericphanson/ExplicitImports.jl/issues/62
+# https://github.com/JuliaTesting/ExplicitImports.jl/issues/62
 module TestMod13
 
 using LinearAlgebra: norm
@@ -226,19 +220,34 @@ f(norm=norm) = 1
 
 end # TestMod13
 
-if VERSION >= v"1.7-"
-    @eval module TestMod14
+module TestMod14
+using Compat: Compat, Returns
+Compat.Returns
 
-    using Compat: Compat, Returns
-    Compat.Returns
+end # TestMod14
 
-    end # TestMod14
-end
-
-# https://github.com/ericphanson/ExplicitImports.jl/issues/69
+# https://github.com/JuliaTesting/ExplicitImports.jl/issues/69
 module TestMod15
 using Reexport
 
 @reexport using ..Exporter: exported_a
 
 end # TestMod15
+
+# https://github.com/JuliaTesting/ExplicitImports.jl/issues/137
+module TestMod16
+using ..BaseReexporter
+
+# Use symbols that are exported by both Base and BaseReexporter
+# Base exports `/` and `convert`, and BaseReexporter re-exports them
+# The bug: ExplicitImports suggests importing these from BaseReexporter
+# The fix: Should not suggest importing them since Base exports them (implicitly available)
+function foo(x, y)
+    x / y  # uses `/` which is exported by both Base and BaseReexporter
+end
+
+function bar(x)
+    convert(Float64, x)  # uses `convert` which is exported by both Base and BaseReexporter
+end
+
+end # TestMod16

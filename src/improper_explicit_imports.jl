@@ -2,7 +2,7 @@ function analyze_explicitly_imported_names(mod::Module, file=pathof(mod);
                                            # private undocumented kwarg for hoisting this analysis
                                            file_analysis=get_names_used(file))
     check_file(file)
-    @compat (; per_usage_info, unnecessary_explicit_import, tainted) = filter_to_module(file_analysis,
+    (; per_usage_info, unnecessary_explicit_import, tainted) = filter_to_module(file_analysis,
                                                                                         mod)
     stale_imports = Set((; nt.name, nt.module_path) for nt in unnecessary_explicit_import)
 
@@ -29,7 +29,7 @@ function analyze_explicitly_imported_names(mod::Module, file=pathof(mod);
         internal_import = Base.moduleroot(mod) == Base.moduleroot(output.importing_from)
         stale = (; row.name, row.module_path) in stale_imports
         # Cannot be stale if public or exported in the module `mod`
-        # https://github.com/ericphanson/ExplicitImports.jl/issues/69
+        # https://github.com/JuliaTesting/ExplicitImports.jl/issues/69
         if public_or_exported(mod, row.name)
             stale = false
         end
@@ -143,6 +143,22 @@ function process_explicitly_imported_row(row, mod)
             public_import=public_or_exported(current_mod, row.name),)
 end
 
+
+"""
+    get_default_skip_pairs()
+
+Returns a tuple of module pairs: either `(Base => Core,)` is Compat.jl is not loaded, or `(Base => Core, Compat => Base, Compat => Core)` if it is.
+"""
+function get_default_skip_pairs()
+    pkgid = Base.PkgId(Base.UUID("34da2185-b29b-5c13-b0c7-acf172513d20"), "Compat")
+    Compat = get(Base.loaded_modules, pkgid, nothing)
+    if Compat === nothing
+        return (Base => Core,)
+    else
+        return (Base => Core, Compat => Base, Compat => Core)
+    end
+end
+
 """
     improper_explicit_imports_nonrecursive(mod::Module, file=pathof(mod); strict=true, skip=(Base => Core,
                                                                          Compat => Base,
@@ -154,9 +170,7 @@ A non-recursive version of [`improper_explicit_imports`](@ref), meaning it only 
 If `strict=true`, then returns `nothing` if `mod` could not be fully analyzed.
 """
 function improper_explicit_imports_nonrecursive(mod::Module, file=pathof(mod);
-                                                skip=(Base => Core,
-                                                      Compat => Base,
-                                                      Compat => Core),
+                                                skip=get_default_skip_pairs(),
                                                 strict=true,
                                                 allow_internal_imports=true,
                                                 # private undocumented kwarg for hoisting this analysis
@@ -236,9 +250,7 @@ However, the result will be a Tables.jl-compatible row-oriented table (for each 
 See also [`print_explicit_imports`](@ref) to easily compute and print these results, [`improper_explicit_imports_nonrecursive`](@ref) for a non-recursive version which ignores submodules, as well as [`check_no_stale_explicit_imports`](@ref), [`check_all_explicit_imports_via_owners`](@ref), and [`check_all_explicit_imports_are_public`](@ref) for specific regression-testing helpers.
 """
 function improper_explicit_imports(mod::Module, file=pathof(mod); strict=true,
-                                   skip=(Base => Core,
-                                         Compat => Base,
-                                         Compat => Core),
+                                   skip=get_default_skip_pairs(),
                                    allow_internal_imports=true)
     check_file(file)
     submodules = find_submodules(mod, file)
