@@ -34,18 +34,10 @@ function ExplicitImports._test_explicit_imports(package::Module, file=pathof(mod
                     @test true
                 elseif ex isa UnanalyzableModuleException
                     unanalyzable_modules = ["unanalyzable module: $(ex.mod)"]
-                    if VERSION >= v"1.14"
-                        @test isempty(unanalyzable_modules) context=ex.mod
-                    else
-                        @test isempty(unanalyzable_modules)
-                    end
+                    @test isempty(unanalyzable_modules)
                 else
                     missing_explicit_imports = ["using $(choose_exporter(row.name, row.exporters)): $(row.name) # used at $(row.location)" for row in ex.names]
-                    if VERSION >= v"1.14"
-                        @test isempty(missing_explicit_imports) context=ex.mod
-                    else
-                        @test isempty(missing_explicit_imports)
-                    end
+                    @test isempty(missing_explicit_imports)
                 end
             end
         end
@@ -59,19 +51,11 @@ function ExplicitImports._test_explicit_imports(package::Module, file=pathof(mod
                     @test true
                 elseif ex isa UnanalyzableModuleException
                     unanalyzable_modules = ["unanalyzable module: $(ex.mod)"]
-                    if VERSION >= v"1.14"
-                        @test isempty(unanalyzable_modules) context=ex.mod
-                    else
-                        @test isempty(unanalyzable_modules)
-                    end
+                    @test isempty(unanalyzable_modules)
                 else
                     stale_explicit_imports = ["unused explicit import in $(ex.mod): $(row.name) # imported at $(row.location)"
                                               for row in ex.names]
-                    if VERSION >= v"1.14"
-                        @test isempty(stale_explicit_imports) context=ex.mod
-                    else
-                        @test isempty(stale_explicit_imports)
-                    end
+                    @test isempty(stale_explicit_imports)
                 end
             end
         end
@@ -86,11 +70,7 @@ function ExplicitImports._test_explicit_imports(package::Module, file=pathof(mod
                 else
                     imports_from_non_owners = ["using $(row.importing_from): $(row.name) # owner $(row.whichmodule), at $(row.location)"
                                                for row in ex.bad_imports]
-                    if VERSION >= v"1.14"
-                        @test isempty(imports_from_non_owners) context=ex.mod
-                    else
-                        @test isempty(imports_from_non_owners)
-                    end
+                    @test isempty(imports_from_non_owners)
                 end
             end
         end
@@ -105,11 +85,7 @@ function ExplicitImports._test_explicit_imports(package::Module, file=pathof(mod
                 else
                     non_public_explicit_imports = ["using $(row.importing_from): $(row.name) # not public, at $(row.location)"
                                                    for row in ex.bad_imports]
-                    if VERSION >= v"1.14"
-                        @test isempty(non_public_explicit_imports) context=ex.mod
-                    else
-                        @test isempty(non_public_explicit_imports)
-                    end
+                    @test isempty(non_public_explicit_imports)
                 end
             end
         end
@@ -124,11 +100,7 @@ function ExplicitImports._test_explicit_imports(package::Module, file=pathof(mod
                 else
                     qualified_accesses_from_non_owners = ["$(row.accessing_from).$(row.name) # owner $(row.whichmodule), at $(row.location)"
                                                           for row in ex.accesses]
-                    if VERSION >= v"1.14"
-                        @test isempty(qualified_accesses_from_non_owners) context=ex.mod
-                    else
-                        @test isempty(qualified_accesses_from_non_owners)
-                    end
+                    @test isempty(qualified_accesses_from_non_owners)
                 end
             end
         end
@@ -143,11 +115,7 @@ function ExplicitImports._test_explicit_imports(package::Module, file=pathof(mod
                 else
                     non_public_qualified_accesses = ["$(row.accessing_from).$(row.name) # not public, at $(row.location)"
                                                      for row in ex.bad_imports]
-                    if VERSION >= v"1.14"
-                        @test isempty(non_public_qualified_accesses) context=ex.mod
-                    else
-                        @test isempty(non_public_qualified_accesses)
-                    end
+                    @test isempty(non_public_qualified_accesses)
                 end
             end
         end
@@ -162,11 +130,7 @@ function ExplicitImports._test_explicit_imports(package::Module, file=pathof(mod
                 else
                     self_qualified_accesses = ["$(ex.mod).$(row.name) # at $(row.location)"
                                                for row in ex.accesses]
-                    if VERSION >= v"1.14"
-                        @test isempty(self_qualified_accesses) context=ex.mod
-                    else
-                        @test isempty(self_qualified_accesses)
-                    end
+                    @test isempty(self_qualified_accesses)
                 end
             end
         end
