@@ -161,7 +161,7 @@ function check_no_stale_explicit_imports(mod::Module, file=pathof(mod); ignore::
             submodule in allow_unanalyzable && continue
             ex = UnanalyzableModuleException(submodule)
             throw || return ex
-            throw(ex)
+            Base.throw(ex)
         end
         filter!(stale_imports) do nt
             return nt.name ∉ ignore && nt.stale
@@ -170,7 +170,7 @@ function check_no_stale_explicit_imports(mod::Module, file=pathof(mod); ignore::
             ex = StaleImportsException(submodule,
                                        NamedTuple{(:name, :location)}.(stale_imports))
             throw || return ex
-            throw(ex)
+            Base.throw(ex)
         end
     end
     return nothing
@@ -240,13 +240,13 @@ function check_no_implicit_imports(mod::Module, file=pathof(mod); skip=(mod, Bas
             end
             ex = UnanalyzableModuleException(submodule)
             throw || return ex
-            throw(ex)
+            Base.throw(ex)
         end
         should_ignore!(names, submodule; ignore)
         if !isempty(names)
             ex = ImplicitImportsException(submodule, names)
             throw || return ex
-            throw(ex)
+            Base.throw(ex)
         end
     end
     return nothing
@@ -350,7 +350,7 @@ function check_all_qualified_accesses_via_owners(mod::Module, file=pathof(mod);
         if !isempty(problematic)
             ex = QualifiedAccessesFromNonOwnerException(submodule, problematic)
             throw || return ex
-            throw(ex)
+            Base.throw(ex)
         end
     end
     return nothing
@@ -453,7 +453,7 @@ function check_all_qualified_accesses_are_public(mod::Module, file=pathof(mod);
         if !isempty(problematic)
             ex = NonPublicQualifiedAccessException(submodule, problematic)
             throw || return ex
-            throw(ex)
+            Base.throw(ex)
         end
     end
     return nothing
@@ -510,7 +510,7 @@ function check_no_self_qualified_accesses(mod::Module, file=pathof(mod);
         if !isempty(problematic)
             ex = SelfQualifiedAccessException(submodule, problematic)
             throw || return ex
-            throw(ex)
+            Base.throw(ex)
         end
     end
     return nothing
@@ -604,7 +604,7 @@ function check_all_explicit_imports_via_owners(mod::Module, file=pathof(mod);
         if !isempty(problematic)
             ex = ExplicitImportsFromNonOwnerException(submodule, problematic)
             throw || return ex
-            throw(ex)
+            Base.throw(ex)
         end
     end
     return nothing
@@ -702,7 +702,7 @@ function check_all_explicit_imports_are_public(mod::Module, file=pathof(mod);
         if !isempty(problematic)
             ex = NonPublicExplicitImportsException(submodule, problematic)
             throw || return ex
-            throw(ex)
+            Base.throw(ex)
         end
     end
     return nothing
