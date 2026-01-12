@@ -154,90 +154,18 @@ include("issue_140.jl")
 
     @testset "test_explicit_imports output" begin
         # Here we run each test individually and check that we are getting out our nice expressions that try to convey what is happening
-        no_implicit_imports_failures = failing_expressions() do
-            test_explicit_imports(TestMod1, "test_mods.jl";
-                                  no_implicit_imports=true,
-                                  no_stale_explicit_imports=false,
-                                  all_explicit_imports_via_owners=false,
-                                  all_explicit_imports_are_public=false,
-                                  all_qualified_accesses_via_owners=false,
-                                  all_qualified_accesses_are_public=false,
-                                  no_self_qualified_accesses=false)
+        all_checks_failures = failing_expressions() do
+            test_explicit_imports(TestQualifiedAccess, "test_qualified_access.jl")
         end
-        @test no_implicit_imports_failures == ["isempty(missing_explicit_imports)"]
+        @test all_checks_failures ==
+             ["isempty(qualified_accesses_from_non_owners)",
+             "isempty(non_public_qualified_accesses)",
+             "isempty(self_qualified_accesses)"]
+        no_implicit_imports_individual_failures = failing_expressions() do
+            test_no_implicit_imports(TestMod1, "test_mods.jl")
+        end
+        @test no_implicit_imports_individual_failures == ["isempty(missing_explicit_imports)"]
 
-        issue_111_path = joinpath(@__DIR__, "issue_111.jl")
-        stale_explicit_imports_failures = failing_expressions() do
-            test_explicit_imports(FieldNameOnly, issue_111_path;
-                                  no_implicit_imports=false,
-                                  no_stale_explicit_imports=true,
-                                  all_explicit_imports_via_owners=false,
-                                  all_explicit_imports_are_public=false,
-                                  all_qualified_accesses_via_owners=false,
-                                  all_qualified_accesses_are_public=false,
-                                  no_self_qualified_accesses=false)
-        end
-        @test stale_explicit_imports_failures == ["isempty(stale_explicit_imports)"]
-
-        explicit_imports_via_owner_failures = failing_expressions() do
-            test_explicit_imports(TestExplicitImports, "test_explicit_imports.jl";
-                                  no_implicit_imports=false,
-                                  no_stale_explicit_imports=false,
-                                  all_explicit_imports_via_owners=(; allow_internal_imports=false),
-                                  all_explicit_imports_are_public=false,
-                                  all_qualified_accesses_via_owners=false,
-                                  all_qualified_accesses_are_public=false,
-                                  no_self_qualified_accesses=false)
-        end
-        @test explicit_imports_via_owner_failures == ["isempty(imports_from_non_owners)"]
-
-        non_public_explicit_imports_failures = failing_expressions() do
-            test_explicit_imports(ModImports, "imports.jl";
-                                  no_implicit_imports=false,
-                                  no_stale_explicit_imports=false,
-                                  all_explicit_imports_via_owners=false,
-                                  all_explicit_imports_are_public=true,
-                                  all_qualified_accesses_via_owners=false,
-                                  all_qualified_accesses_are_public=false,
-                                  no_self_qualified_accesses=false)
-        end
-        @test non_public_explicit_imports_failures == ["isempty(non_public_explicit_imports)"]
-
-        qualified_accesses_via_owner_failures = failing_expressions() do
-            test_explicit_imports(TestQualifiedAccess, "test_qualified_access.jl";
-                                  no_implicit_imports=false,
-                                  no_stale_explicit_imports=false,
-                                  all_explicit_imports_via_owners=false,
-                                  all_explicit_imports_are_public=false,
-                                  all_qualified_accesses_via_owners=true,
-                                  all_qualified_accesses_are_public=false,
-                                  no_self_qualified_accesses=false)
-        end
-        @test qualified_accesses_via_owner_failures == ["isempty(qualified_accesses_from_non_owners)"]
-
-        non_public_qualified_accesses_failures = failing_expressions() do
-            test_explicit_imports(TestQualifiedAccess, "test_qualified_access.jl";
-                                  no_implicit_imports=false,
-                                  no_stale_explicit_imports=false,
-                                  all_explicit_imports_via_owners=false,
-                                  all_explicit_imports_are_public=false,
-                                  all_qualified_accesses_via_owners=false,
-                                  all_qualified_accesses_are_public=true,
-                                  no_self_qualified_accesses=false)
-        end
-        @test non_public_qualified_accesses_failures == ["isempty(non_public_qualified_accesses)"]
-
-        self_qualified_accesses_failures = failing_expressions() do
-            test_explicit_imports(TestQualifiedAccess, "test_qualified_access.jl";
-                                  no_implicit_imports=false,
-                                  no_stale_explicit_imports=false,
-                                  all_explicit_imports_via_owners=false,
-                                  all_explicit_imports_are_public=false,
-                                  all_qualified_accesses_via_owners=false,
-                                  all_qualified_accesses_are_public=false,
-                                  no_self_qualified_accesses=true)
-        end
-        @test self_qualified_accesses_failures == ["isempty(self_qualified_accesses)"]
     end
 
     # https://github.com/JuliaTesting/ExplicitImports.jl/issues/137

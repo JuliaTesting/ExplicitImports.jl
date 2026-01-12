@@ -22,7 +22,7 @@ using TOML: TOML, parsefile
 using Markdown: Markdown
 using PrecompileTools: @setup_workload, @compile_workload
 using Pkg: Pkg
-using Test
+using Test: Test, @test, @testset
 
 # we'll borrow their `@_public` macro; if this goes away, we can get our own
 JuliaSyntax.@_public ignore_submodules
