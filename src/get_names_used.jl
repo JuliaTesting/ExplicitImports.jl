@@ -119,7 +119,7 @@ end
 # figure out if `leaf` is part of an import or using statement
 # this seems to trigger for both `X` and `y` in `using X: y`, but that seems alright.
 function analyze_import_type(leaf)
-    kind(leaf) == K"Identifier" || return :not_import
+    kind(leaf) in (K"Identifier", K"MacroName", K"StringMacroName") || return :not_import
     has_parent(leaf) || return :not_import
     is_import = parents_match(leaf, (K"importpath",))
     is_import || return :not_import

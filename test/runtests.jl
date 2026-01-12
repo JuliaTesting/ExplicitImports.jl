@@ -109,6 +109,10 @@ include("issue_140.jl")
         include("issue_111_test.jl")
     end
 
+    @testset "Macro explicit imports (#97)" begin
+        include("issue_97_test.jl")
+    end
+
     @testset "module aliases (#106)" begin
         # https://github.com/JuliaTesting/ExplicitImports.jl/issues/106
         ret = Dict(improper_explicit_imports(ModAlias, "module_alias.jl"))
