@@ -1,6 +1,6 @@
 module TestExt
 using ExplicitImports
-using ExplicitImports: check_file
+using ExplicitImports: check_file, choose_exporter
 using Test
 
 # Borrowed from Aqua.jl
@@ -32,8 +32,15 @@ function ExplicitImports._test_explicit_imports(package::Module, file=pathof(mod
                                                 askwargs(no_implicit_imports)...)
                 if ex === nothing
                     @test true
+                elseif ex isa UnanalyzableModuleException
+                    unanalyzable_modules = ["unanalyzable module: $(ex.mod)"]
+                    if VERSION >= v"1.14"
+                        @test isempty(unanalyzable_modules) context=ex.mod
+                    else
+                        @test isempty(unanalyzable_modules)
+                    end
                 else
-                    missing_explicit_imports = [String(chomp(sprint(io -> ExplicitImports.using_statements(io, [row]; show_locations=true)))) for row in ex.names]
+                    missing_explicit_imports = ["using $(choose_exporter(row.name, row.exporters)): $(row.name) # at $(row.location)" for row in ex.names]
                     if VERSION >= v"1.14"
                         @test isempty(missing_explicit_imports) context=ex.mod
                     else
@@ -44,45 +51,124 @@ function ExplicitImports._test_explicit_imports(package::Module, file=pathof(mod
         end
 
         if no_stale_explicit_imports !== false
-            @test check_no_stale_explicit_imports(package, file;
-                                                  throw=false,
-                                                  askwargs(no_stale_explicit_imports)...) ===
-                  nothing
+            @testset "No stale explicit imports" begin
+                ex = check_no_stale_explicit_imports(package, file;
+                                                     throw=false,
+                                                     askwargs(no_stale_explicit_imports)...)
+                if ex === nothing
+                    @test true
+                elseif ex isa UnanalyzableModuleException
+                    unanalyzable_modules = ["unanalyzable module: $(ex.mod)"]
+                    if VERSION >= v"1.14"
+                        @test isempty(unanalyzable_modules) context=ex.mod
+                    else
+                        @test isempty(unanalyzable_modules)
+                    end
+                else
+                    stale_explicit_imports = ["unused explicit import in $(ex.mod): $(row.name) # imported at $(row.location)"
+                                              for row in ex.names]
+                    if VERSION >= v"1.14"
+                        @test isempty(stale_explicit_imports) context=ex.mod
+                    else
+                        @test isempty(stale_explicit_imports)
+                    end
+                end
+            end
         end
 
         if all_explicit_imports_via_owners !== false
-            @test check_all_explicit_imports_via_owners(package, file;
-                                                        throw=false,
-                                                        askwargs(all_explicit_imports_via_owners)...) ===
-                  nothing
+            @testset "Explicit imports via owners" begin
+                ex = check_all_explicit_imports_via_owners(package, file;
+                                                           throw=false,
+                                                           askwargs(all_explicit_imports_via_owners)...)
+                if ex === nothing
+                    @test true
+                else
+                    imports_from_non_owners = ["using $(row.importing_from): $(row.name) # owner $(row.whichmodule), at $(row.location)"
+                                               for row in ex.bad_imports]
+                    if VERSION >= v"1.14"
+                        @test isempty(imports_from_non_owners) context=ex.mod
+                    else
+                        @test isempty(imports_from_non_owners)
+                    end
+                end
+            end
         end
 
         if all_explicit_imports_are_public !== false
-            @test check_all_explicit_imports_are_public(package, file;
-                                                        throw=false,
-                                                        askwargs(all_explicit_imports_are_public)...) ===
-                  nothing
+            @testset "Explicit imports are public" begin
+                ex = check_all_explicit_imports_are_public(package, file;
+                                                           throw=false,
+                                                           askwargs(all_explicit_imports_are_public)...)
+                if ex === nothing
+                    @test true
+                else
+                    non_public_explicit_imports = ["using $(row.importing_from): $(row.name) # not public, at $(row.location)"
+                                                   for row in ex.bad_imports]
+                    if VERSION >= v"1.14"
+                        @test isempty(non_public_explicit_imports) context=ex.mod
+                    else
+                        @test isempty(non_public_explicit_imports)
+                    end
+                end
+            end
         end
 
         if all_qualified_accesses_via_owners !== false
-            @test check_all_qualified_accesses_via_owners(package, file;
-                                                          throw=false,
-                                                          askwargs(all_qualified_accesses_via_owners)...) ===
-                  nothing
+            @testset "Qualified accesses via owners" begin
+                ex = check_all_qualified_accesses_via_owners(package, file;
+                                                             throw=false,
+                                                             askwargs(all_qualified_accesses_via_owners)...)
+                if ex === nothing
+                    @test true
+                else
+                    qualified_accesses_from_non_owners = ["$(row.accessing_from).$(row.name) # owner $(row.whichmodule), at $(row.location)"
+                                                          for row in ex.accesses]
+                    if VERSION >= v"1.14"
+                        @test isempty(qualified_accesses_from_non_owners) context=ex.mod
+                    else
+                        @test isempty(qualified_accesses_from_non_owners)
+                    end
+                end
+            end
         end
 
         if all_qualified_accesses_are_public !== false
-            @test check_all_qualified_accesses_are_public(package, file;
-                                                          throw=false,
-                                                          askwargs(all_qualified_accesses_are_public)...) ===
-                  nothing
+            @testset "Qualified accesses are public" begin
+                ex = check_all_qualified_accesses_are_public(package, file;
+                                                             throw=false,
+                                                             askwargs(all_qualified_accesses_are_public)...)
+                if ex === nothing
+                    @test true
+                else
+                    non_public_qualified_accesses = ["$(row.accessing_from).$(row.name) # not public, at $(row.location)"
+                                                     for row in ex.bad_imports]
+                    if VERSION >= v"1.14"
+                        @test isempty(non_public_qualified_accesses) context=ex.mod
+                    else
+                        @test isempty(non_public_qualified_accesses)
+                    end
+                end
+            end
         end
 
         if no_self_qualified_accesses !== false
-            @test check_no_self_qualified_accesses(package, file;
-                                                   throw=false,
-                                                   askwargs(no_self_qualified_accesses)...) ===
-                  nothing
+            @testset "No self qualified accesses" begin
+                ex = check_no_self_qualified_accesses(package, file;
+                                                      throw=false,
+                                                      askwargs(no_self_qualified_accesses)...)
+                if ex === nothing
+                    @test true
+                else
+                    self_qualified_accesses = ["$(ex.mod).$(row.name) # at $(row.location)"
+                                               for row in ex.accesses]
+                    if VERSION >= v"1.14"
+                        @test isempty(self_qualified_accesses) context=ex.mod
+                    else
+                        @test isempty(self_qualified_accesses)
+                    end
+                end
+            end
         end
     end
 end
