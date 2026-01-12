@@ -112,6 +112,10 @@ include("issue_140.jl")
     @testset "Cmd interpolation uses explicit imports (#81)" begin
         include("issue_81_test.jl")
     end
+    
+    @testset "Macro explicit imports (#97)" begin
+        include("issue_97_test.jl")
+    end
 
     @testset "module aliases (#106)" begin
         # https://github.com/JuliaTesting/ExplicitImports.jl/issues/106
