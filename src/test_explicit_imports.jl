@@ -180,38 +180,48 @@ function test_explicit_imports(package::Module, file=pathof(package);
                                 all_qualified_accesses_are_public=true,
                                 no_self_qualified_accesses=true)
     check_file(file)
+    file_analysis = Dict{String,FileAnalysis}()
 
     @testset "ExplicitImports" begin
         if no_implicit_imports !== false
-            test_no_implicit_imports(package, file; askwargs(no_implicit_imports)...)
+            test_no_implicit_imports(package, file;
+                                     file_analysis,
+                                     askwargs(no_implicit_imports)...)
         end
 
         if no_stale_explicit_imports !== false
-            test_no_stale_explicit_imports(package, file; askwargs(no_stale_explicit_imports)...)
+            test_no_stale_explicit_imports(package, file;
+                                           file_analysis,
+                                           askwargs(no_stale_explicit_imports)...)
         end
 
         if all_explicit_imports_via_owners !== false
             test_all_explicit_imports_via_owners(package, file;
+                                                 file_analysis,
                                                  askwargs(all_explicit_imports_via_owners)...)
         end
 
         if all_explicit_imports_are_public !== false
             test_all_explicit_imports_are_public(package, file;
+                                                 file_analysis,
                                                  askwargs(all_explicit_imports_are_public)...)
         end
 
         if all_qualified_accesses_via_owners !== false
             test_all_qualified_accesses_via_owners(package, file;
+                                                   file_analysis,
                                                    askwargs(all_qualified_accesses_via_owners)...)
         end
 
         if all_qualified_accesses_are_public !== false
             test_all_qualified_accesses_are_public(package, file;
+                                                   file_analysis,
                                                    askwargs(all_qualified_accesses_are_public)...)
         end
 
         if no_self_qualified_accesses !== false
             test_no_self_qualified_accesses(package, file;
+                                            file_analysis,
                                             askwargs(no_self_qualified_accesses)...)
         end
     end

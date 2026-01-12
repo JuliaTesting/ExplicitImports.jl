@@ -153,10 +153,13 @@ that are allowed to be stale explicit imports. For example,
 would check there were no stale explicit imports besides that of the name `DataFrame`.
 """
 function check_no_stale_explicit_imports(mod::Module, file=pathof(mod); ignore::Tuple=(),
-                                         allow_unanalyzable::Tuple=(), throw=true)
+                                         allow_unanalyzable::Tuple=(), throw=true,
+                                         # private undocumented kwarg for hoisting this analysis
+                                         file_analysis=Dict())
     check_file(file)
     for (submodule, stale_imports) in
-        improper_explicit_imports(mod, file; strict=true, allow_internal_imports=false)
+        improper_explicit_imports(mod, file; strict=true, allow_internal_imports=false,
+                                  file_analysis)
         if isnothing(stale_imports)
             submodule in allow_unanalyzable && continue
             ex = UnanalyzableModuleException(submodule)
@@ -230,9 +233,11 @@ but verify there are no other implicit imports.
 """
 function check_no_implicit_imports(mod::Module, file=pathof(mod); skip=(mod, Base, Core),
                                    ignore::Tuple=(), allow_unanalyzable::Tuple=(),
-                                   throw=true)
+                                   throw=true,
+                                   # private undocumented kwarg for hoisting this analysis
+                                   file_analysis=Dict())
     check_file(file)
-    ee = explicit_imports(mod, file; skip)
+    ee = explicit_imports(mod, file; skip, file_analysis)
     for (submodule, names) in ee
         if isnothing(names)
             if submodule in allow_unanalyzable || should_ignore_module(submodule; ignore)
@@ -324,10 +329,13 @@ function check_all_qualified_accesses_via_owners(mod::Module, file=pathof(mod);
                                                  skip::TUPLE_MODULE_PAIRS=get_default_skip_pairs(),
                                                  require_submodule_access=false,
                                                  allow_internal_accesses=true,
-                                                 throw=true)
+                                                 throw=true,
+                                                 # private undocumented kwarg for hoisting this analysis
+                                                 file_analysis=Dict())
     check_file(file)
     for (submodule, problematic) in
-        improper_qualified_accesses(mod, file; skip, allow_internal_accesses)
+        improper_qualified_accesses(mod, file; skip, allow_internal_accesses,
+                                    file_analysis)
         filter!(problematic) do nt
             return nt.name ∉ ignore
         end
@@ -413,11 +421,14 @@ function check_all_qualified_accesses_are_public(mod::Module, file=pathof(mod);
                                                  from=nothing,
                                                  ignore::Tuple=(),
                                                  allow_internal_accesses=true,
-                                                 throw=true)
+                                                 throw=true,
+                                                 # private undocumented kwarg for hoisting this analysis
+                                                 file_analysis=Dict())
     check_file(file)
     for (submodule, problematic) in
         # We pass `skip=()` since we will do our own filtering after
-        improper_qualified_accesses(mod, file; skip=(), allow_internal_accesses)
+        improper_qualified_accesses(mod, file; skip=(), allow_internal_accesses,
+                                    file_analysis)
         filter!(problematic) do nt
             return nt.name ∉ ignore
         end
@@ -492,10 +503,12 @@ Note that if a module is not fully analyzable (e.g. it has dynamic `include` cal
 See also: [`improper_qualified_accesses`](@ref) for programmatic access to the same information. Note that while `improper_qualified_accesses` may increase in scope and report other kinds of improper accesses, `check_all_qualified_accesses_are_public` will not.
 """
 function check_no_self_qualified_accesses(mod::Module, file=pathof(mod);
-                                          ignore::Tuple=(), throw=true)
+                                          ignore::Tuple=(), throw=true,
+                                          # private undocumented kwarg for hoisting this analysis
+                                          file_analysis=Dict())
     check_file(file)
     for (submodule, problematic) in
-        improper_qualified_accesses(mod, file; skip=())
+        improper_qualified_accesses(mod, file; skip=(), file_analysis)
         filter!(problematic) do nt
             return nt.name ∉ ignore
         end
@@ -571,7 +584,9 @@ function check_all_explicit_imports_via_owners(mod::Module, file=pathof(mod);
                                                skip::TUPLE_MODULE_PAIRS=get_default_skip_pairs(),
                                                allow_internal_imports=true,
                                                require_submodule_import=false,
-                                               throw=true)
+                                               throw=true,
+                                               # private undocumented kwarg for hoisting this analysis
+                                               file_analysis=Dict())
     check_file(file)
     # `strict=false` because unanalyzability doesn't compromise our analysis
     # that much, unlike in the stale case (in which we might miss usages of the
@@ -581,7 +596,8 @@ function check_all_explicit_imports_via_owners(mod::Module, file=pathof(mod);
     # throw by default there and not require this function to also throw
     # in the exact same cases.
     for (submodule, problematic) in
-        improper_explicit_imports(mod, file; strict=false, skip, allow_internal_imports)
+        improper_explicit_imports(mod, file; strict=false, skip, allow_internal_imports,
+                                  file_analysis)
         filter!(problematic) do nt
             return nt.name ∉ ignore
         end
@@ -667,11 +683,14 @@ function check_all_explicit_imports_are_public(mod::Module, file=pathof(mod);
                                                from=nothing,
                                                ignore::Tuple=(),
                                                allow_internal_imports=true,
-                                               throw=true)
+                                               throw=true,
+                                               # private undocumented kwarg for hoisting this analysis
+                                               file_analysis=Dict())
     check_file(file)
     for (submodule, problematic) in
         # We pass `skip=()` since we will do our own filtering after
-        improper_explicit_imports(mod, file; strict=false, skip=(), allow_internal_imports)
+        improper_explicit_imports(mod, file; strict=false, skip=(), allow_internal_imports,
+                                  file_analysis)
         filter!(problematic) do nt
             return nt.name ∉ ignore
         end
