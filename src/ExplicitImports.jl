@@ -423,11 +423,6 @@ end
 
 include("precompile.jl")
 
-# pre-1.9 compat
-if !isdefined(Base, :get_extension)
-    include("../ext/TestExt.jl")
-end
-
 @setup_workload begin
     @compile_workload begin
         sprint(print_explicit_imports, ExplicitImports, @__FILE__; context=:color => true)

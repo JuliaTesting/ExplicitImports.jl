@@ -13,14 +13,9 @@ function askwargs(flag::Bool)
 end
 
 macro test_nothing(f, args, kw)
-    quoted_expr = quote
-        $(esc(f))((esc(args))...; (esc(kw))...) === nothing
-    end
-    expr = quote
-        $(esc(f))($(esc(args))...; $(esc(kw))...) === nothing
-    end
-
-    return Test.eval_test(expr, quoted_expr, __source__)
+    return esc(quote
+        @test $f($args...; $kw...) === nothing
+    end)
 end
 
 # TODO: kwargs named test or check?
