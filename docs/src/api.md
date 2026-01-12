@@ -53,6 +53,18 @@ check_all_qualified_accesses_are_public
 check_no_self_qualified_accesses
 ```
 
+There are also Test.jl versions of these which use testsets instead of throwing errors:
+
+```@docs
+test_no_implicit_imports
+test_no_stale_explicit_imports
+test_all_explicit_imports_via_owners
+test_all_explicit_imports_are_public
+test_all_qualified_accesses_via_owners
+test_all_qualified_accesses_are_public
+test_no_self_qualified_accesses
+```
+
 ## Usage with scripts (such as `runtests.jl`)
 
 We also provide a helper function to analyze scripts (rather than modules).

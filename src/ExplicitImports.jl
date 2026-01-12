@@ -42,7 +42,10 @@ export ImplicitImportsException, UnanalyzableModuleException,
        NonPublicQualifiedAccessException, SelfQualifiedAccessException
 export StaleImportsException, check_no_stale_explicit_imports
 
-export test_explicit_imports
+export test_explicit_imports, test_no_implicit_imports, test_no_stale_explicit_imports,
+       test_all_explicit_imports_via_owners, test_all_explicit_imports_are_public,
+       test_all_qualified_accesses_via_owners, test_all_qualified_accesses_are_public,
+       test_no_self_qualified_accesses
 
 # deprecated
 export print_stale_explicit_imports, stale_explicit_imports,

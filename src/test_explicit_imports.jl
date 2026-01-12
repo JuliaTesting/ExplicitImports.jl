@@ -6,6 +6,12 @@ function askwargs(flag::Bool)
     end
     return NamedTuple()
 end
+
+"""
+    test_no_implicit_imports(package::Module, file=pathof(mod); kwargs...)
+
+Test.jl wrapper for [`check_no_implicit_imports`](@ref); see that function for behavior and keyword arguments.
+"""
 function test_no_implicit_imports(package::Module, file=pathof(mod); kwargs...)
     @testset "No implicit imports" begin
         ex = check_no_implicit_imports(package, file; throw=false, kwargs...)
@@ -21,6 +27,11 @@ function test_no_implicit_imports(package::Module, file=pathof(mod); kwargs...)
     end
 end
 
+"""
+    test_no_stale_explicit_imports(package::Module, file=pathof(mod); kwargs...)
+
+Test.jl wrapper for [`check_no_stale_explicit_imports`](@ref); see that function for behavior and keyword arguments.
+"""
 function test_no_stale_explicit_imports(package::Module, file=pathof(mod); kwargs...)
     @testset "No stale explicit imports" begin
         ex = check_no_stale_explicit_imports(package, file; throw=false, kwargs...)
@@ -37,6 +48,11 @@ function test_no_stale_explicit_imports(package::Module, file=pathof(mod); kwarg
     end
 end
 
+"""
+    test_all_explicit_imports_via_owners(package::Module, file=pathof(mod); kwargs...)
+
+Test.jl wrapper for [`check_all_explicit_imports_via_owners`](@ref); see that function for behavior and keyword arguments.
+"""
 function test_all_explicit_imports_via_owners(package::Module, file=pathof(mod); kwargs...)
     @testset "Explicit imports via owners" begin
         ex = check_all_explicit_imports_via_owners(package, file; throw=false, kwargs...)
@@ -50,6 +66,11 @@ function test_all_explicit_imports_via_owners(package::Module, file=pathof(mod);
     end
 end
 
+"""
+    test_all_explicit_imports_are_public(package::Module, file=pathof(mod); kwargs...)
+
+Test.jl wrapper for [`check_all_explicit_imports_are_public`](@ref); see that function for behavior and keyword arguments.
+"""
 function test_all_explicit_imports_are_public(package::Module, file=pathof(mod); kwargs...)
     @testset "Explicit imports are public" begin
         ex = check_all_explicit_imports_are_public(package, file; throw=false, kwargs...)
@@ -63,6 +84,11 @@ function test_all_explicit_imports_are_public(package::Module, file=pathof(mod);
     end
 end
 
+"""
+    test_all_qualified_accesses_via_owners(package::Module, file=pathof(mod); kwargs...)
+
+Test.jl wrapper for [`check_all_qualified_accesses_via_owners`](@ref); see that function for behavior and keyword arguments.
+"""
 function test_all_qualified_accesses_via_owners(package::Module, file=pathof(mod); kwargs...)
     @testset "Qualified accesses via owners" begin
         ex = check_all_qualified_accesses_via_owners(package, file; throw=false, kwargs...)
@@ -76,6 +102,11 @@ function test_all_qualified_accesses_via_owners(package::Module, file=pathof(mod
     end
 end
 
+"""
+    test_all_qualified_accesses_are_public(package::Module, file=pathof(mod); kwargs...)
+
+Test.jl wrapper for [`check_all_qualified_accesses_are_public`](@ref); see that function for behavior and keyword arguments.
+"""
 function test_all_qualified_accesses_are_public(package::Module, file=pathof(mod); kwargs...)
     @testset "Qualified accesses are public" begin
         ex = check_all_qualified_accesses_are_public(package, file; throw=false, kwargs...)
@@ -89,6 +120,11 @@ function test_all_qualified_accesses_are_public(package::Module, file=pathof(mod
     end
 end
 
+"""
+    test_no_self_qualified_accesses(package::Module, file=pathof(mod); kwargs...)
+
+Test.jl wrapper for [`check_no_self_qualified_accesses`](@ref); see that function for behavior and keyword arguments.
+"""
 function test_no_self_qualified_accesses(package::Module, file=pathof(mod); kwargs...)
     @testset "No self qualified accesses" begin
         ex = check_no_self_qualified_accesses(package, file; throw=false, kwargs...)
