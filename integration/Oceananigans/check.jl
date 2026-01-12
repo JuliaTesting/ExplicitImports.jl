@@ -1,11 +1,38 @@
 using Oceananigans, ExplicitImports, Test
 
 @testset "Oceananigans" begin
-    # https://github.com/CliMA/Oceananigans.jl/blob/986acc0f61b6f5a6fa9bfd589a22c204f043186c/test/test_quality_assurance.jl#L11C1-L38C8
-    modules = (Oceananigans.Utils, Oceananigans.OrthogonalSphericalShellGrids,
-               Oceananigans.Diagnostics, Oceananigans.AbstractOperations,
-               Oceananigans.Models.HydrostaticFreeSurfaceModels, Oceananigans.TimeSteppers,
-               Oceananigans.ImmersedBoundaries, Oceananigans.TurbulenceClosures)
+
+    # https://github.com/CliMA/Oceananigans.jl/blob/8a67381e173a68e6538ab778f20c288761d014c1/test/test_quality_assurance.jl#L16-L73
+    modules = (
+        Oceananigans.AbstractOperations,
+        # Oceananigans.Advection,
+        # Oceananigans.Architectures,
+        Oceananigans.Biogeochemistry,
+        # Oceananigans.BoundaryConditions,
+        Oceananigans.BuoyancyFormulations,
+        Oceananigans.Coriolis,
+        Oceananigans.Diagnostics,
+        # Oceananigans.DistributedComputations,
+        Oceananigans.Fields,
+        Oceananigans.Forcings,
+        # Oceananigans.Grids,
+        Oceananigans.ImmersedBoundaries,
+        # Oceananigans.Logger,
+        # Oceananigans.Models,
+        Oceananigans.Models.HydrostaticFreeSurfaceModels,
+        # Oceananigans.MultiRegion,
+        Oceananigans.Operators,
+        Oceananigans.OrthogonalSphericalShellGrids,
+        # Oceananigans.OutputReaders,
+        # Oceananigans.OutputWriters,
+        # Oceananigans.Simulations,
+        Oceananigans.Solvers,
+        # Oceananigans.StokesDrifts,
+        Oceananigans.TimeSteppers,
+        Oceananigans.TurbulenceClosures,
+        Oceananigans.Units,
+        Oceananigans.Utils,
+    )
 
     @testset "Explicit Imports [$(mod)]" for mod in modules
         @info "Testing no implicit imports for module $(mod)"
