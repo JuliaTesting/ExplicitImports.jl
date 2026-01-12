@@ -128,6 +128,8 @@ end
 Checks that neither `mod` nor any of its submodules has stale (unused) explicit imports, throwing
 an `StaleImportsException` if so, and returning `nothing` otherwise.
 
+If `throw=false`, return the exception instead of throwing.
+
 This can be used in a package's tests, e.g.
 
 ```julia
@@ -151,20 +153,24 @@ that are allowed to be stale explicit imports. For example,
 would check there were no stale explicit imports besides that of the name `DataFrame`.
 """
 function check_no_stale_explicit_imports(mod::Module, file=pathof(mod); ignore::Tuple=(),
-                                         allow_unanalyzable::Tuple=())
+                                         allow_unanalyzable::Tuple=(), throw=true)
     check_file(file)
     for (submodule, stale_imports) in
         improper_explicit_imports(mod, file; strict=true, allow_internal_imports=false)
         if isnothing(stale_imports)
             submodule in allow_unanalyzable && continue
-            throw(UnanalyzableModuleException(submodule))
+            ex = UnanalyzableModuleException(submodule)
+            throw || return ex
+            throw(ex)
         end
         filter!(stale_imports) do nt
             return nt.name ∉ ignore && nt.stale
         end
         if !isempty(stale_imports)
-            throw(StaleImportsException(submodule,
-                                        NamedTuple{(:name, :location)}.(stale_imports)))
+            ex = StaleImportsException(submodule,
+                                       NamedTuple{(:name, :location)}.(stale_imports))
+            throw || return ex
+            throw(ex)
         end
     end
     return nothing
@@ -176,6 +182,8 @@ end
 
 Checks that neither `mod` nor any of its submodules is relying on implicit imports, throwing
 an `ImplicitImportsException` if so, and returning `nothing` otherwise.
+
+If `throw=false`, return the exception instead of throwing.
 
 This function can be used in a package's tests, e.g.
 
@@ -221,16 +229,24 @@ This would:
 but verify there are no other implicit imports.
 """
 function check_no_implicit_imports(mod::Module, file=pathof(mod); skip=(mod, Base, Core),
-                                   ignore::Tuple=(), allow_unanalyzable::Tuple=())
+                                   ignore::Tuple=(), allow_unanalyzable::Tuple=(),
+                                   throw=true)
     check_file(file)
     ee = explicit_imports(mod, file; skip)
     for (submodule, names) in ee
-        if isnothing(names) && submodule in allow_unanalyzable
-            continue
+        if isnothing(names)
+            if submodule in allow_unanalyzable || should_ignore_module(submodule; ignore)
+                continue
+            end
+            ex = UnanalyzableModuleException(submodule)
+            throw || return ex
+            throw(ex)
         end
         should_ignore!(names, submodule; ignore)
-        if !isnothing(names) && !isempty(names)
-            throw(ImplicitImportsException(submodule, names))
+        if !isempty(names)
+            ex = ImplicitImportsException(submodule, names)
+            throw || return ex
+            throw(ex)
         end
     end
     return nothing
@@ -249,15 +265,13 @@ function should_ignore!(names, mod; ignore)
     end
 end
 
-function should_ignore!(::Nothing, mod; ignore)
+function should_ignore_module(mod; ignore)
     for elt in ignore
-        # we're ignoring this whole module
         if elt == mod
-            return
+            return true
         end
     end
-    # Not ignored, and unanalyzable
-    throw(UnanalyzableModuleException(mod))
+    return false
 end
 
 """
@@ -270,6 +284,8 @@ end
 
 Checks that neither `mod` nor any of its submodules has accesses to names via modules other than their owner as determined by `Base.which` (unless the name is public or exported in that module),
 throwing an `QualifiedAccessesFromNonOwnerException` if so, and returning `nothing` otherwise.
+
+If `throw=false`, return the exception instead of throwing.
 
 This can be used in a package's tests, e.g.
 
@@ -307,7 +323,8 @@ function check_all_qualified_accesses_via_owners(mod::Module, file=pathof(mod);
                                                  ignore::Tuple=(),
                                                  skip::TUPLE_MODULE_PAIRS=get_default_skip_pairs(),
                                                  require_submodule_access=false,
-                                                 allow_internal_accesses=true)
+                                                 allow_internal_accesses=true,
+                                                 throw=true)
     check_file(file)
     for (submodule, problematic) in
         improper_qualified_accesses(mod, file; skip, allow_internal_accesses)
@@ -331,7 +348,9 @@ function check_all_qualified_accesses_via_owners(mod::Module, file=pathof(mod);
         # drop unnecessary columns
         problematic = NamedTuple{(:name, :location, :value, :accessing_from, :whichmodule)}.(problematic)
         if !isempty(problematic)
-            throw(QualifiedAccessesFromNonOwnerException(submodule, problematic))
+            ex = QualifiedAccessesFromNonOwnerException(submodule, problematic)
+            throw || return ex
+            throw(ex)
         end
     end
     return nothing
@@ -344,6 +363,8 @@ end
 
 Checks that neither `mod` nor any of its submodules has qualified accesses to names which are non-public (i.e. not exported, nor declared public on Julia 1.11+)
 throwing an `NonPublicQualifiedAccessException` if so, and returning `nothing` otherwise.
+
+If `throw=false`, return the exception instead of throwing.
 
 This can be used in a package's tests, e.g.
 
@@ -391,7 +412,8 @@ function check_all_qualified_accesses_are_public(mod::Module, file=pathof(mod);
                                                  skip::TUPLE_MODULE_PAIRS=(Base => Core,),
                                                  from=nothing,
                                                  ignore::Tuple=(),
-                                                 allow_internal_accesses=true)
+                                                 allow_internal_accesses=true,
+                                                 throw=true)
     check_file(file)
     for (submodule, problematic) in
         # We pass `skip=()` since we will do our own filtering after
@@ -429,7 +451,9 @@ function check_all_qualified_accesses_are_public(mod::Module, file=pathof(mod);
         # drop unnecessary columns
         problematic = NamedTuple{(:name, :location, :value, :accessing_from)}.(problematic)
         if !isempty(problematic)
-            throw(NonPublicQualifiedAccessException(submodule, problematic))
+            ex = NonPublicQualifiedAccessException(submodule, problematic)
+            throw || return ex
+            throw(ex)
         end
     end
     return nothing
@@ -441,6 +465,8 @@ end
 
 Checks that neither `mod` nor any of its submodules has self-qualified accesses,
 throwing an `SelfQualifiedAccessException` if so, and returning `nothing` otherwise.
+
+If `throw=false`, return the exception instead of throwing.
 
 This can be used in a package's tests, e.g.
 
@@ -466,7 +492,7 @@ Note that if a module is not fully analyzable (e.g. it has dynamic `include` cal
 See also: [`improper_qualified_accesses`](@ref) for programmatic access to the same information. Note that while `improper_qualified_accesses` may increase in scope and report other kinds of improper accesses, `check_all_qualified_accesses_are_public` will not.
 """
 function check_no_self_qualified_accesses(mod::Module, file=pathof(mod);
-                                          ignore::Tuple=())
+                                          ignore::Tuple=(), throw=true)
     check_file(file)
     for (submodule, problematic) in
         improper_qualified_accesses(mod, file; skip=())
@@ -482,7 +508,9 @@ function check_no_self_qualified_accesses(mod::Module, file=pathof(mod);
         # drop unnecessary columns
         problematic = NamedTuple{(:name, :location, :value)}.(problematic)
         if !isempty(problematic)
-            throw(SelfQualifiedAccessException(submodule, problematic))
+            ex = SelfQualifiedAccessException(submodule, problematic)
+            throw || return ex
+            throw(ex)
         end
     end
     return nothing
@@ -498,6 +526,8 @@ end
 
 Checks that neither `mod` nor any of its submodules has imports to names via modules other than their owner as determined by `Base.which` (unless the name is public or exported in that module),
 throwing an `ExplicitImportsFromNonOwnerException` if so, and returning `nothing` otherwise.
+
+If `throw=false`, return the exception instead of throwing.
 
 This can be used in a package's tests, e.g.
 
@@ -540,7 +570,8 @@ function check_all_explicit_imports_via_owners(mod::Module, file=pathof(mod);
                                                ignore::Tuple=(),
                                                skip::TUPLE_MODULE_PAIRS=get_default_skip_pairs(),
                                                allow_internal_imports=true,
-                                               require_submodule_import=false)
+                                               require_submodule_import=false,
+                                               throw=true)
     check_file(file)
     # `strict=false` because unanalyzability doesn't compromise our analysis
     # that much, unlike in the stale case (in which we might miss usages of the
@@ -571,7 +602,9 @@ function check_all_explicit_imports_via_owners(mod::Module, file=pathof(mod);
         # drop unnecessary columns
         problematic = NamedTuple{(:name, :location, :value, :importing_from, :whichmodule)}.(problematic)
         if !isempty(problematic)
-            throw(ExplicitImportsFromNonOwnerException(submodule, problematic))
+            ex = ExplicitImportsFromNonOwnerException(submodule, problematic)
+            throw || return ex
+            throw(ex)
         end
     end
     return nothing
@@ -584,6 +617,8 @@ end
 
 Checks that neither `mod` nor any of its submodules has imports to names which are non-public (i.e. not exported, nor declared public on Julia 1.11+)
 throwing an `NonPublicExplicitImportsException` if so, and returning `nothing` otherwise.
+
+If `throw=false`, return the exception instead of throwing.
 
 This can be used in a package's tests, e.g.
 
@@ -631,7 +666,8 @@ function check_all_explicit_imports_are_public(mod::Module, file=pathof(mod);
                                                skip::TUPLE_MODULE_PAIRS=(Base => Core,),
                                                from=nothing,
                                                ignore::Tuple=(),
-                                               allow_internal_imports=true)
+                                               allow_internal_imports=true,
+                                               throw=true)
     check_file(file)
     for (submodule, problematic) in
         # We pass `skip=()` since we will do our own filtering after
@@ -664,7 +700,9 @@ function check_all_explicit_imports_are_public(mod::Module, file=pathof(mod);
         # drop unnecessary columns
         problematic = NamedTuple{(:name, :location, :value, :importing_from)}.(problematic)
         if !isempty(problematic)
-            throw(NonPublicExplicitImportsException(submodule, problematic))
+            ex = NonPublicExplicitImportsException(submodule, problematic)
+            throw || return ex
+            throw(ex)
         end
     end
     return nothing
