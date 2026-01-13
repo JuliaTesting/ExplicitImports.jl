@@ -78,6 +78,7 @@ include("public_compat.jl")
 include("Exporter.jl")
 include("TestModA.jl")
 include("test_mods.jl")
+include("ignore_modules.jl")
 include("DynMod.jl")
 include("TestModArgs.jl")
 include("examples.jl")
@@ -122,6 +123,8 @@ include("issue_140.jl")
     @testset "Macro explicit imports (#97)" begin
         include("issue_97_test.jl")
     end
+
+    include("ignore_modules_test.jl")
 
     @testset "module aliases (#106)" begin
         # https://github.com/JuliaTesting/ExplicitImports.jl/issues/106
