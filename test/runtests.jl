@@ -8,7 +8,7 @@ using ExplicitImports: analyze_all_names, has_ancestor, should_skip,
                        get_import_lhs, analyze_import_type,
                        analyze_explicitly_imported_names, owner_mod_for_printing,
                        get_names_used
-using Test
+using Test, MetaTesting
 using DataFrames
 using Aqua
 using Logging, UUIDs
@@ -19,6 +19,10 @@ using ExplicitImports: is_struct_type_param, is_struct_field_name, is_for_arg,
                        is_where_type_param, is_bound_by_where_clause
 using TestPkg, Markdown
 using Compat: Compat # load for compat skipping tests
+
+if pwd() != joinpath(pkgdir(ExplicitImports), "test")
+    @warn """Tests must be run from test directory, call `cd(joinpath(pkgdir(ExplicitImports), "test"))` before running to avoid spurious errors"""
+end
 
 function exception_string(f)
     str = try
@@ -63,6 +67,12 @@ end
 only_name_source(::Nothing) = nothing
 only_name_source(v::Vector) = only_name_source.(v)
 only_name_source(p::Pair) = first(p) => only_name_source(last(p))
+
+# use MetaTesting to get a string list of the expressions out
+function failing_expressions(f)
+    nonpassing_results_for_test = nonpassing_results(f)
+    return [result.orig_expr for result in nonpassing_results_for_test if result isa Test.Fail]
+end
 
 include("public_compat.jl")
 include("Exporter.jl")
@@ -139,6 +149,58 @@ include("issue_140.jl")
         @test check_no_stale_explicit_imports(TestMod15, "test_mods.jl") === nothing
         @test isempty(improper_explicit_imports_nonrecursive(TestMod15, "test_mods.jl"))
         @test isempty(improper_explicit_imports(TestMod15, "test_mods.jl")[1][2])
+        test_explicit_imports(TestMod15, "test_mods.jl"; no_implicit_imports=false)
+    end
+
+    @testset "test_explicit_imports output" begin
+        # Here we run each test individually and check that we are getting out our nice expressions that try to convey what is happening
+        all_checks_failures = failing_expressions() do
+            test_explicit_imports(TestQualifiedAccess, "test_qualified_access.jl")
+        end
+        @test all_checks_failures ==
+             ["isempty(qualified_accesses_from_non_owners)",
+             "isempty(non_public_qualified_accesses)",
+             "isempty(self_qualified_accesses)"]
+        no_implicit_imports_individual_failures = failing_expressions() do
+            test_no_implicit_imports(TestMod1, "test_mods.jl")
+        end
+        @test no_implicit_imports_individual_failures == ["isempty(missing_explicit_imports)"]
+
+        no_stale_explicit_imports_individual_failures = failing_expressions() do
+            test_no_stale_explicit_imports(TestModA.SubModB.TestModA.TestModC, "TestModA.jl")
+        end
+        @test no_stale_explicit_imports_individual_failures == ["isempty(stale_explicit_imports)"]
+
+        all_explicit_imports_via_owners_individual_failures = failing_expressions() do
+            test_all_explicit_imports_via_owners(ModImports, "imports.jl")
+        end
+        @test all_explicit_imports_via_owners_individual_failures ==
+              ["isempty(imports_from_non_owners)"]
+
+        all_explicit_imports_are_public_individual_failures = failing_expressions() do
+            test_all_explicit_imports_are_public(ModImports, "imports.jl")
+        end
+        @test all_explicit_imports_are_public_individual_failures ==
+              ["isempty(non_public_explicit_imports)"]
+
+        all_qualified_accesses_via_owners_individual_failures = failing_expressions() do
+            test_all_qualified_accesses_via_owners(TestQualifiedAccess, "test_qualified_access.jl")
+        end
+        @test all_qualified_accesses_via_owners_individual_failures ==
+              ["isempty(qualified_accesses_from_non_owners)"]
+
+        all_qualified_accesses_are_public_individual_failures = failing_expressions() do
+            test_all_qualified_accesses_are_public(TestQualifiedAccess, "test_qualified_access.jl")
+        end
+        @test all_qualified_accesses_are_public_individual_failures ==
+              ["isempty(non_public_qualified_accesses)"]
+
+        no_self_qualified_accesses_individual_failures = failing_expressions() do
+            test_no_self_qualified_accesses(TestQualifiedAccess, "test_qualified_access.jl")
+        end
+        @test no_self_qualified_accesses_individual_failures ==
+              ["isempty(self_qualified_accesses)"]
+
     end
 
     # https://github.com/JuliaTesting/ExplicitImports.jl/issues/137

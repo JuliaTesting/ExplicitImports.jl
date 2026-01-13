@@ -25,7 +25,15 @@ improper_qualified_accesses
 
 ExplicitImports.jl provides several functions (all starting with `check_`) which introspect a module for various kinds of potential issues, and throws errors if these issues are encountered. These "check" functions are designed to be narrowly scoped to detect one specific type of issue, and stable so that they can be used in testing environments (with the aim that non-breaking releases of ExplicitExports.jl will generally not cause new test failures).
 
-The first such check is [`check_no_implicit_imports`](@ref) which aims to ensure there are no implicit exports used in the package.
+ExplicitImports also provides Test.jl wrappers for each `check_*` function. These are named `test_*` (e.g. [`test_no_implicit_imports`](@ref)) and mirror the keyword arguments of their corresponding checks.
+
+Additionally, one can use [`test_explicit_imports`](@ref) to run _all_ of the tests from one simple interface. This functionality is modeled after [Aqua](https://github.com/JuliaTesting/Aqua.jl)'s [`Aqua.test_all`](https://juliatesting.github.io/Aqua.jl/stable/test_all/#Aqua.test_all).
+
+```@docs
+test_explicit_imports
+```
+
+Now let us go over each check in more detail. The first such check is [`check_no_implicit_imports`](@ref) which aims to ensure there are no implicit exports used in the package.
 
 ```@docs
 check_no_implicit_imports
@@ -45,6 +53,18 @@ Lastly, we have two checks related to detecting "improper" qualified accesses to
 check_all_qualified_accesses_via_owners
 check_all_qualified_accesses_are_public
 check_no_self_qualified_accesses
+```
+
+There are also Test.jl versions of these which use testsets instead of throwing errors:
+
+```@docs
+test_no_implicit_imports
+test_no_stale_explicit_imports
+test_all_explicit_imports_via_owners
+test_all_explicit_imports_are_public
+test_all_qualified_accesses_via_owners
+test_all_qualified_accesses_are_public
+test_no_self_qualified_accesses
 ```
 
 ## Usage with scripts (such as `runtests.jl`)

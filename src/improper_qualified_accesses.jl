@@ -222,13 +222,14 @@ function improper_qualified_accesses(mod::Module, file=pathof(mod);
                                      skip=get_default_skip_pairs(),
                                      allow_internal_accesses=true,
                                      # deprecated
-                                     require_submodule_access=nothing)
+                                     require_submodule_access=nothing,
+                                     # private undocumented kwarg for hoisting this analysis
+                                     file_analysis=Dict())
     check_file(file)
     if require_submodule_access !== nothing
         @warn "[improper_qualified_accesses] `require_submodule_access` is deprecated and unused" _id = :explicit_imports_improper_qualified_accesses_require_submodule_access maxlog = 1
     end
     submodules = find_submodules(mod, file)
-    file_analysis = Dict{String,FileAnalysis}()
     fill_cache!(file_analysis, last.(submodules))
     return [submodule => improper_qualified_accesses_nonrecursive(submodule, path;
                                                                   file_analysis=file_analysis[path],
