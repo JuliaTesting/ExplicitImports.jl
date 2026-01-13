@@ -291,12 +291,6 @@ function should_ignore!(names, mod; ignore)
     end
 end
 
-function should_ignore!(::Nothing, mod; ignore)
-    is_ignored_submodule(mod; ignore) && return
-    # Not ignored, and unanalyzable
-    throw(UnanalyzableModuleException(mod))
-end
-
 """
     check_all_qualified_accesses_via_owners(mod::Module, file=pathof(mod); ignore::Tuple=(),
                                             require_submodule_access=false,
