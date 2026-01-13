@@ -163,8 +163,7 @@ function check_no_stale_explicit_imports(mod::Module, file=pathof(mod); ignore::
         if isnothing(stale_imports)
             submodule in allow_unanalyzable && continue
             ex = UnanalyzableModuleException(submodule)
-            throw || return ex
-            Base.throw(ex)
+            throw ? Base.throw(ex) : return ex
         end
         filter!(stale_imports) do nt
             return nt.name ∉ ignore && nt.stale
@@ -172,8 +171,7 @@ function check_no_stale_explicit_imports(mod::Module, file=pathof(mod); ignore::
         if !isempty(stale_imports)
             ex = StaleImportsException(submodule,
                                        NamedTuple{(:name, :location)}.(stale_imports))
-            throw || return ex
-            Base.throw(ex)
+            throw ? Base.throw(ex) : return ex
         end
     end
     return nothing
@@ -244,14 +242,12 @@ function check_no_implicit_imports(mod::Module, file=pathof(mod); skip=(mod, Bas
                 continue
             end
             ex = UnanalyzableModuleException(submodule)
-            throw || return ex
-            Base.throw(ex)
+            throw ? Base.throw(ex) : return ex
         end
         should_ignore!(names, submodule; ignore)
         if !isempty(names)
             ex = ImplicitImportsException(submodule, names)
-            throw || return ex
-            Base.throw(ex)
+            throw ? Base.throw(ex) : return ex
         end
     end
     return nothing
@@ -357,8 +353,7 @@ function check_all_qualified_accesses_via_owners(mod::Module, file=pathof(mod);
         problematic = NamedTuple{(:name, :location, :value, :accessing_from, :whichmodule)}.(problematic)
         if !isempty(problematic)
             ex = QualifiedAccessesFromNonOwnerException(submodule, problematic)
-            throw || return ex
-            Base.throw(ex)
+            throw ? Base.throw(ex) : return ex
         end
     end
     return nothing
@@ -463,8 +458,7 @@ function check_all_qualified_accesses_are_public(mod::Module, file=pathof(mod);
         problematic = NamedTuple{(:name, :location, :value, :accessing_from)}.(problematic)
         if !isempty(problematic)
             ex = NonPublicQualifiedAccessException(submodule, problematic)
-            throw || return ex
-            Base.throw(ex)
+            throw ? Base.throw(ex) : return ex
         end
     end
     return nothing
@@ -522,8 +516,7 @@ function check_no_self_qualified_accesses(mod::Module, file=pathof(mod);
         problematic = NamedTuple{(:name, :location, :value)}.(problematic)
         if !isempty(problematic)
             ex = SelfQualifiedAccessException(submodule, problematic)
-            throw || return ex
-            Base.throw(ex)
+            throw ? Base.throw(ex) : return ex
         end
     end
     return nothing
@@ -619,8 +612,7 @@ function check_all_explicit_imports_via_owners(mod::Module, file=pathof(mod);
         problematic = NamedTuple{(:name, :location, :value, :importing_from, :whichmodule)}.(problematic)
         if !isempty(problematic)
             ex = ExplicitImportsFromNonOwnerException(submodule, problematic)
-            throw || return ex
-            Base.throw(ex)
+            throw ? Base.throw(ex) : return ex
         end
     end
     return nothing
@@ -720,8 +712,7 @@ function check_all_explicit_imports_are_public(mod::Module, file=pathof(mod);
         problematic = NamedTuple{(:name, :location, :value, :importing_from)}.(problematic)
         if !isempty(problematic)
             ex = NonPublicExplicitImportsException(submodule, problematic)
-            throw || return ex
-            Base.throw(ex)
+            throw ? Base.throw(ex) : return ex
         end
     end
     return nothing
