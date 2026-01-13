@@ -129,3 +129,31 @@ end
                                                 ignore=(IgnoreExplicitPublicMixMod.Parent,
                                                         :hidden)) === nothing
 end
+
+@testset "ignore requires submodules" begin
+    @test_throws ArgumentError check_no_implicit_imports(IgnoreImplicitImportsMod,
+                                                         "ignore_modules.jl";
+                                                         ignore=(Exporter,))
+    @test_throws ArgumentError check_no_stale_explicit_imports(IgnoreStaleImportsMod,
+                                                               "ignore_modules.jl";
+                                                               ignore=(Exporter,))
+    @test_throws ArgumentError check_all_qualified_accesses_via_owners(IgnoreQualifiedOwnersMod,
+                                                                       "ignore_modules.jl";
+                                                                       allow_internal_accesses=false,
+                                                                       ignore=(Exporter,))
+    @test_throws ArgumentError check_all_qualified_accesses_are_public(IgnoreQualifiedPublicMod,
+                                                                       "ignore_modules.jl";
+                                                                       allow_internal_accesses=false,
+                                                                       ignore=(Exporter,))
+    @test_throws ArgumentError check_no_self_qualified_accesses(IgnoreSelfQualifiedMod,
+                                                                "ignore_modules.jl";
+                                                                ignore=(Exporter,))
+    @test_throws ArgumentError check_all_explicit_imports_via_owners(IgnoreExplicitOwnersMod,
+                                                                     "ignore_modules.jl";
+                                                                     allow_internal_imports=false,
+                                                                     ignore=(Exporter,))
+    @test_throws ArgumentError check_all_explicit_imports_are_public(IgnoreExplicitPublicMod,
+                                                                     "ignore_modules.jl";
+                                                                     allow_internal_imports=false,
+                                                                     ignore=(Exporter,))
+end
