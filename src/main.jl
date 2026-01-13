@@ -135,6 +135,8 @@ function print_help()
     println(io, "       --check")
     println(io,
             "           Run checks instead of printing. If --checklist is not specified, all checks are run")
+    println(io, "       --test")
+    println(io, "           Run Test.jl-style checks instead of printing")
     println(io, "       --checklist <check1,check2>,...")
     println(io,
             """           Run checks specified by <check1>,<check2>,...
@@ -160,6 +162,7 @@ function main(args)
     valid_check_values = [CHECKS; "all"; EXCLUDE_PREFIX .* CHECKS]
     selected_checks = copy(CHECKS)
     should_run_checks = false
+    should_run_tests = false
     should_print = false
     path = "."
 
@@ -172,6 +175,8 @@ function main(args)
             return 0
         elseif x == "--check"
             should_run_checks = true
+        elseif x == "--test"
+            should_run_tests = true
         elseif x == "--print"
             should_print = true
         elseif x == "--checklist"
@@ -216,8 +221,12 @@ function main(args)
         end
     end
 
+    if should_run_tests && should_run_checks
+        return err("Arguments `--test` and `--check`/`--checklist` are mutually exclusive.")
+    end
+
     # Print by default
-    if !should_run_checks && !should_print
+    if !should_run_checks && !should_run_tests && !should_print
         should_print = true
     end
 
@@ -231,6 +240,15 @@ function main(args)
     if should_print
         try
             @eval Main $ExplicitImports.print_explicit_imports($package)
+        catch e
+            printstyled(stderr, "ERROR: "; bold=true, color=:red)
+            Base.showerror(stderr, e)
+            return 1
+        end
+    end
+    if should_run_tests
+        try
+            @eval Main $ExplicitImports.test_explicit_imports($package)
         catch e
             printstyled(stderr, "ERROR: "; bold=true, color=:red)
             Base.showerror(stderr, e)

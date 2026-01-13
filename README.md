@@ -270,6 +270,8 @@ OPTIONS
            Show this message
        --check
            Run checks instead of printing. If --checklist is not specified, all checks are run
+       --test
+           Run Test.jl-style checks instead of printing
        --checklist <check1,check2>,...
            Run checks specified by <check1>,<check2>,...
            This will imply --check.
