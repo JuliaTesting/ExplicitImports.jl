@@ -20,7 +20,7 @@ using ExplicitImports: is_struct_type_param, is_struct_field_name, is_for_arg,
 using TestPkg, Markdown
 using Compat: Compat # load for compat skipping tests
 
-if pwd() !== joinpath(pkgdir(ExplicitImports), "test")
+if pwd() != joinpath(pkgdir(ExplicitImports), "test")
     @warn """Tests must be run from test directory, call `cd(joinpath(pkgdir(ExplicitImports), "test"))` before running to avoid spurious errors"""
 end
 
