@@ -143,7 +143,7 @@ Any other submodules found to be unanalyzable will result in an `UnanalyzableMod
 
 ## Allowing some stale explicit imports
 
-If `ignore` is supplied, it can include:
+The keyword `ignore` can be passed to represent a tuple of items to ignore. These can be:
 
 * modules, which are submodules of `mod`. This ignores stale explicit imports that occur within the ignored submodule tree.
 * symbols, representing names that are allowed to be stale explicit imports in any submodule.
@@ -220,6 +220,7 @@ The `skip` keyword argument can be passed to allow implicit imports from some mo
 would verify there are no implicit imports from modules other than Base, Core, and DataFrames.
 
 Additionally, the keyword `ignore` can be passed to represent a tuple of items to ignore. These can be:
+
 
 * modules, which are submodules of `mod`. This ignores implicit imports that occur within the ignored submodule tree.
 * symbols: any implicit import of a name matching an element of `ignore` is ignored (does not throw)
@@ -331,7 +332,7 @@ For example:
 
 would allow explicitly accessing names which are owned by PrettyTables from DataFrames.
 
-If `ignore` is supplied, it can include:
+Additionally, the keyword `ignore` can be passed to represent a tuple of items to ignore. These can be:
 
 * modules, which are submodules of `mod`. This ignores qualified accesses that occur within the ignored submodule tree.
 * symbols, representing names that are allowed to be accessed from non-owner modules in any submodule.
@@ -420,7 +421,7 @@ For example:
 
 would allow accessing names which are public in PrettyTables from DataFrames.
 
-If `ignore` is supplied, it can include:
+Additionally, the keyword `ignore` can be passed to represent a tuple of items to ignore. These can be:
 
 * modules, which are submodules of `mod`. This ignores qualified accesses that occur within the ignored submodule tree.
 * symbols, representing names that are allowed to be accessed from modules in which they are not public in any submodule.
@@ -522,7 +523,7 @@ This can be used in a package's tests, e.g.
 
 ## Allowing some self-qualified accesses
 
-If `ignore` is supplied, it can include:
+The keyword `ignore` can be passed to represent a tuple of items to ignore. These can be:
 
 * modules, which are submodules of `mod`. This ignores self-qualified accesses that occur within the ignored submodule tree.
 * symbols, representing names that are allowed to be self-qualified in any submodule.
@@ -602,7 +603,7 @@ For example:
 
 would allow explicitly importing names which are owned by PrettyTables from DataFrames.
 
-If `ignore` is supplied, it can include:
+Additionally, the keyword `ignore` can be passed to represent a tuple of items to ignore. These can be:
 
 * modules, which are submodules of `mod`. This ignores non-owner explicit imports that occur within the ignored submodule tree.
 * symbols, representing names that are allowed to be imported from non-owner modules in any submodule.
@@ -703,7 +704,7 @@ For example:
 
 would allow explicitly importing names which are public in PrettyTables from DataFrames.
 
-If `ignore` is supplied, it can include:
+Additionally, the keyword `ignore` can be passed to represent a tuple of items to ignore. These can be:
 
 * modules, which are submodules of `mod`. This ignores non-public explicit imports that occur within the ignored submodule tree.
 * symbols, representing names that are allowed to be imported from modules in which they are not public in any submodule.
