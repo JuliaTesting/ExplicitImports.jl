@@ -145,7 +145,7 @@ Any other submodules found to be unanalyzable will result in an `UnanalyzableMod
 
 If `ignore` is supplied, it can include:
 
-* modules. Any submodule of `mod` matching an element of `ignore` (or any of its submodules) is skipped. The module match is against the submodule in which the explicit import statement occurs, so this skips stale explicit imports that occur within the ignored submodule tree.
+* modules, which are submodules of `mod`. This ignores stale explicit imports that occur within the ignored submodule tree.
 * symbols, representing names that are allowed to be stale explicit imports in any submodule.
 
 Module and symbol ignores can be mixed in a single tuple.
@@ -163,6 +163,7 @@ function check_no_stale_explicit_imports(mod::Module, file=pathof(mod); ignore::
                                          # private undocumented kwarg for hoisting this analysis
                                          file_analysis=Dict())
     check_file(file)
+    validate_ignore_submodules(mod; ignore)
     for (submodule, stale_imports) in
         improper_explicit_imports(mod, file; strict=true, allow_internal_imports=false,
                                   file_analysis)
@@ -220,7 +221,7 @@ would verify there are no implicit imports from modules other than Base, Core, a
 
 Additionally, the keyword `ignore` can be passed to represent a tuple of items to ignore. These can be:
 
-* modules. Any submodule of `mod` matching an element of `ignore` (or any of its submodules) is skipped. The module match is against the submodule in which the implicit import is used, so this ignores implicit imports that occur within the ignored submodule tree.
+* modules, which are submodules of `mod`. This ignores implicit imports that occur within the ignored submodule tree.
 * symbols: any implicit import of a name matching an element of `ignore` is ignored (does not throw)
 * `symbol => module` pairs. Any implicit import of a name matching that symbol from a module matching the module is ignored.
 
@@ -244,6 +245,7 @@ function check_no_implicit_imports(mod::Module, file=pathof(mod); skip=(mod, Bas
                                    # private undocumented kwarg for hoisting this analysis
                                    file_analysis=Dict())
     check_file(file)
+    validate_ignore_submodules(mod; ignore)
     ee = explicit_imports(mod, file; skip, file_analysis)
     for (submodule, names) in ee
         if isnothing(names)
@@ -264,6 +266,15 @@ end
 
 function is_ignored_submodule(mod; ignore)
     return any(elt isa Module && has_ancestor(mod, elt) for elt in ignore)
+end
+
+function validate_ignore_submodules(mod; ignore)
+    for elt in ignore
+        elt isa Module || continue
+        if !has_ancestor(elt, mod)
+            throw(ArgumentError("`ignore` module entries must be submodules of $(mod); got $(elt)"))
+        end
+    end
 end
 
 function should_ignore!(names, mod; ignore)
@@ -322,7 +333,7 @@ would allow explicitly accessing names which are owned by PrettyTables from Data
 
 If `ignore` is supplied, it can include:
 
-* modules. Any submodule of `mod` matching an element of `ignore` (or any of its submodules) is skipped. The module match is against the submodule in which the qualified access occurs, so this ignores qualified accesses that occur within the ignored submodule tree.
+* modules, which are submodules of `mod`. This ignores qualified accesses that occur within the ignored submodule tree.
 * symbols, representing names that are allowed to be accessed from non-owner modules in any submodule.
 
 Module and symbol ignores can be mixed in a single tuple.
@@ -349,6 +360,7 @@ function check_all_qualified_accesses_via_owners(mod::Module, file=pathof(mod);
                                                  # private undocumented kwarg for hoisting this analysis
                                                  file_analysis=Dict())
     check_file(file)
+    validate_ignore_submodules(mod; ignore)
     for (submodule, problematic) in
         improper_qualified_accesses(mod, file; skip, allow_internal_accesses,
                                     file_analysis)
@@ -410,7 +422,7 @@ would allow accessing names which are public in PrettyTables from DataFrames.
 
 If `ignore` is supplied, it can include:
 
-* modules. Any submodule of `mod` matching an element of `ignore` (or any of its submodules) is skipped. The module match is against the submodule in which the qualified access occurs, so this ignores qualified accesses that occur within the ignored submodule tree.
+* modules, which are submodules of `mod`. This ignores qualified accesses that occur within the ignored submodule tree.
 * symbols, representing names that are allowed to be accessed from modules in which they are not public in any submodule.
 
 Module and symbol ignores can be mixed in a single tuple.
@@ -447,6 +459,7 @@ function check_all_qualified_accesses_are_public(mod::Module, file=pathof(mod);
                                                  # private undocumented kwarg for hoisting this analysis
                                                  file_analysis=Dict())
     check_file(file)
+    validate_ignore_submodules(mod; ignore)
     for (submodule, problematic) in
         # We pass `skip=()` since we will do our own filtering after
         improper_qualified_accesses(mod, file; skip=(), allow_internal_accesses,
@@ -511,7 +524,7 @@ This can be used in a package's tests, e.g.
 
 If `ignore` is supplied, it can include:
 
-* modules. Any submodule of `mod` matching an element of `ignore` (or any of its submodules) is skipped. The module match is against the submodule in which the self-qualified access occurs, so this ignores self-qualified accesses that occur within the ignored submodule tree.
+* modules, which are submodules of `mod`. This ignores self-qualified accesses that occur within the ignored submodule tree.
 * symbols, representing names that are allowed to be self-qualified in any submodule.
 
 Module and symbol ignores can be mixed in a single tuple.
@@ -535,6 +548,7 @@ function check_no_self_qualified_accesses(mod::Module, file=pathof(mod);
                                           # private undocumented kwarg for hoisting this analysis
                                           file_analysis=Dict())
     check_file(file)
+    validate_ignore_submodules(mod; ignore)
     for (submodule, problematic) in
         improper_qualified_accesses(mod, file; skip=(), file_analysis)
         is_ignored_submodule(submodule; ignore) && continue
@@ -590,7 +604,7 @@ would allow explicitly importing names which are owned by PrettyTables from Data
 
 If `ignore` is supplied, it can include:
 
-* modules. Any submodule of `mod` matching an element of `ignore` (or any of its submodules) is skipped. The module match is against the submodule in which the explicit import statement occurs, so this ignores non-owner explicit imports that occur within the ignored submodule tree.
+* modules, which are submodules of `mod`. This ignores non-owner explicit imports that occur within the ignored submodule tree.
 * symbols, representing names that are allowed to be imported from non-owner modules in any submodule.
 
 Module and symbol ignores can be mixed in a single tuple.
@@ -622,6 +636,7 @@ function check_all_explicit_imports_via_owners(mod::Module, file=pathof(mod);
                                                # private undocumented kwarg for hoisting this analysis
                                                file_analysis=Dict())
     check_file(file)
+    validate_ignore_submodules(mod; ignore)
     # `strict=false` because unanalyzability doesn't compromise our analysis
     # that much, unlike in the stale case (in which we might miss usages of the
     # "stale" name, making it not-stale). Here we might just miss bad imports
@@ -690,7 +705,7 @@ would allow explicitly importing names which are public in PrettyTables from Dat
 
 If `ignore` is supplied, it can include:
 
-* modules. Any submodule of `mod` matching an element of `ignore` (or any of its submodules) is skipped. The module match is against the submodule in which the explicit import statement occurs, so this ignores non-public explicit imports that occur within the ignored submodule tree.
+* modules, which are submodules of `mod`. This ignores non-public explicit imports that occur within the ignored submodule tree.
 * symbols, representing names that are allowed to be imported from modules in which they are not public in any submodule.
 
 Module and symbol ignores can be mixed in a single tuple.
@@ -727,6 +742,7 @@ function check_all_explicit_imports_are_public(mod::Module, file=pathof(mod);
                                                # private undocumented kwarg for hoisting this analysis
                                                file_analysis=Dict())
     check_file(file)
+    validate_ignore_submodules(mod; ignore)
     for (submodule, problematic) in
         # We pass `skip=()` since we will do our own filtering after
         improper_explicit_imports(mod, file; strict=false, skip=(), allow_internal_imports,
