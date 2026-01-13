@@ -166,6 +166,41 @@ include("issue_140.jl")
         end
         @test no_implicit_imports_individual_failures == ["isempty(missing_explicit_imports)"]
 
+        no_stale_explicit_imports_individual_failures = failing_expressions() do
+            test_no_stale_explicit_imports(TestModA.SubModB.TestModA.TestModC, "TestModA.jl")
+        end
+        @test no_stale_explicit_imports_individual_failures == ["isempty(stale_explicit_imports)"]
+
+        all_explicit_imports_via_owners_individual_failures = failing_expressions() do
+            test_all_explicit_imports_via_owners(ModImports, "imports.jl")
+        end
+        @test all_explicit_imports_via_owners_individual_failures ==
+              ["isempty(imports_from_non_owners)"]
+
+        all_explicit_imports_are_public_individual_failures = failing_expressions() do
+            test_all_explicit_imports_are_public(ModImports, "imports.jl")
+        end
+        @test all_explicit_imports_are_public_individual_failures ==
+              ["isempty(non_public_explicit_imports)"]
+
+        all_qualified_accesses_via_owners_individual_failures = failing_expressions() do
+            test_all_qualified_accesses_via_owners(TestQualifiedAccess, "test_qualified_access.jl")
+        end
+        @test all_qualified_accesses_via_owners_individual_failures ==
+              ["isempty(qualified_accesses_from_non_owners)"]
+
+        all_qualified_accesses_are_public_individual_failures = failing_expressions() do
+            test_all_qualified_accesses_are_public(TestQualifiedAccess, "test_qualified_access.jl")
+        end
+        @test all_qualified_accesses_are_public_individual_failures ==
+              ["isempty(non_public_qualified_accesses)"]
+
+        no_self_qualified_accesses_individual_failures = failing_expressions() do
+            test_no_self_qualified_accesses(TestQualifiedAccess, "test_qualified_access.jl")
+        end
+        @test no_self_qualified_accesses_individual_failures ==
+              ["isempty(self_qualified_accesses)"]
+
     end
 
     # https://github.com/JuliaTesting/ExplicitImports.jl/issues/137
