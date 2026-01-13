@@ -250,7 +250,7 @@ function check_no_implicit_imports(mod::Module, file=pathof(mod); skip=(mod, Bas
     ee = explicit_imports(mod, file; skip, file_analysis)
     for (submodule, names) in ee
         if isnothing(names)
-            if submodule in allow_unanalyzable || should_ignore_module(submodule; ignore)
+            if submodule in allow_unanalyzable || is_ignored_submodule(submodule; ignore)
                 continue
             end
             ex = UnanalyzableModuleException(submodule)
@@ -289,10 +289,6 @@ function should_ignore!(names, mod; ignore)
             return !(elt == k || elt == (k => v))
         end
     end
-end
-
-function should_ignore_module(mod; ignore)
-    return is_ignored_submodule(mod; ignore)
 end
 
 function should_ignore!(::Nothing, mod; ignore)
