@@ -1,0 +1,10 @@
+name = "Issue79Pkg"
+uuid = "fa155e15-ec49-4eec-b540-f513de9043b2"
+authors = ["ExplicitImports tests"]
+version = "0.1.0"
+
+[weakdeps]
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+
+[extensions]
+LinearAlgebraExt = "LinearAlgebra"
