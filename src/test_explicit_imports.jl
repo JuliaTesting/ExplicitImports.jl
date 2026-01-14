@@ -168,9 +168,6 @@ passed to `\$x` to specify the keyword arguments for `check_\$x`.
 The keyword argument `ignore` provides a top-level ignore list that is merged
 into any per-check ignore list. This can be used to ignore a list of submodules in all checks.
 
-!!! note
-    The function requires the stdlib Test to be loaded (e.g. `using Test`).
-
 # Keyword Arguments
 
 - `no_implicit_imports=true`
