@@ -196,7 +196,7 @@ ExplicitImports provides an experimental CLI application using the brand-new "ap
 If you use [juliaup](https://github.com/JuliaLang/juliaup) you can install Julia v1.12 with `juliaup add 1.12`, and then run
 
 ```sh
-julia +1.12 --startup-file=no -e 'using Pkg; Pkg.activate(temp=true); Pkg.Apps.add("ExplicitImports")'
+julia +1.12 --startup-file=no -e 'using Pkg; Pkg.Apps.add("ExplicitImports")'
 ```
 to install a CLI executable `explicit-imports-jl` to the bin directory in your Julia depot (`~/.julia` by default). You will likely need to add your bin directory to your PATH, e.g.
 
