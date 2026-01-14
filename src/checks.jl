@@ -143,8 +143,14 @@ Any other submodules found to be unanalyzable will result in an `UnanalyzableMod
 
 ## Allowing some stale explicit imports
 
-If `ignore` is supplied, it should be a tuple of `Symbol`s, representing names
-that are allowed to be stale explicit imports. For example,
+The keyword `ignore` can be passed to represent a tuple of items to ignore. These can be:
+
+* modules, which are submodules of `mod`. This ignores stale explicit imports that occur within the ignored submodule tree.
+* symbols, representing names that are allowed to be stale explicit imports in any submodule.
+
+Module and symbol ignores can be mixed in a single tuple.
+
+For example,
 
 ```julia
 @test check_no_stale_explicit_imports(MyPackage; ignore=(:DataFrame,)) === nothing
@@ -157,9 +163,13 @@ function check_no_stale_explicit_imports(mod::Module, file=pathof(mod); ignore::
                                          # private undocumented kwarg for hoisting this analysis
                                          file_analysis=Dict())
     check_file(file)
+    validate_ignore_submodules(mod; ignore)
     for (submodule, stale_imports) in
         improper_explicit_imports(mod, file; strict=true, allow_internal_imports=false,
                                   file_analysis)
+        if is_ignored_submodule(submodule; ignore)
+            continue
+        end
         if isnothing(stale_imports)
             submodule in allow_unanalyzable && continue
             ex = UnanalyzableModuleException(submodule)
@@ -211,7 +221,8 @@ would verify there are no implicit imports from modules other than Base, Core, a
 
 Additionally, the keyword `ignore` can be passed to represent a tuple of items to ignore. These can be:
 
-* modules. Any submodule of `mod` matching an element of `ignore` is skipped. This can be used to allow the usage of implicit imports in some submodule of your package.
+
+* modules, which are submodules of `mod`. This ignores implicit imports that occur within the ignored submodule tree.
 * symbols: any implicit import of a name matching an element of `ignore` is ignored (does not throw)
 * `symbol => module` pairs. Any implicit import of a name matching that symbol from a module matching the module is ignored.
 
@@ -235,10 +246,11 @@ function check_no_implicit_imports(mod::Module, file=pathof(mod); skip=(mod, Bas
                                    # private undocumented kwarg for hoisting this analysis
                                    file_analysis=Dict())
     check_file(file)
+    validate_ignore_submodules(mod; ignore)
     ee = explicit_imports(mod, file; skip, file_analysis)
     for (submodule, names) in ee
         if isnothing(names)
-            if submodule in allow_unanalyzable || should_ignore_module(submodule; ignore)
+            if submodule in allow_unanalyzable || is_ignored_submodule(submodule; ignore)
                 continue
             end
             ex = UnanalyzableModuleException(submodule)
@@ -253,26 +265,30 @@ function check_no_implicit_imports(mod::Module, file=pathof(mod); skip=(mod, Bas
     return nothing
 end
 
-function should_ignore!(names, mod; ignore)
+function is_ignored_submodule(mod; ignore)
+    return any(elt isa Module && has_ancestor(mod, elt) for elt in ignore)
+end
+
+function validate_ignore_submodules(mod; ignore)
     for elt in ignore
-        # we're ignoring this whole module
-        if elt == mod
-            empty!(names)
-            return
-        end
-        filter!(names) do (k, v)
-            return !(elt == k || elt == (k => v))
+        elt isa Module || continue
+        if !has_ancestor(elt, mod)
+            throw(ArgumentError("`ignore` module entries must be submodules of $(mod); got $(elt)"))
         end
     end
 end
 
-function should_ignore_module(mod; ignore)
+function should_ignore!(names, mod; ignore)
+    if is_ignored_submodule(mod; ignore)
+        empty!(names)
+        return
+    end
     for elt in ignore
-        if elt == mod
-            return true
+        elt isa Module && continue
+        filter!(names) do (k, v)
+            return !(elt == k || elt == (k => v))
         end
     end
-    return false
 end
 
 """
@@ -306,8 +322,14 @@ For example:
 
 would allow explicitly accessing names which are owned by PrettyTables from DataFrames.
 
-If `ignore` is supplied, it should be a tuple of `Symbol`s, representing names
-that are allowed to be accessed from non-owner modules. For example,
+Additionally, the keyword `ignore` can be passed to represent a tuple of items to ignore. These can be:
+
+* modules, which are submodules of `mod`. This ignores qualified accesses that occur within the ignored submodule tree.
+* symbols, representing names that are allowed to be accessed from non-owner modules in any submodule.
+
+Module and symbol ignores can be mixed in a single tuple.
+
+For example,
 
 ```julia
 @test check_all_qualified_accesses_via_owners(MyPackage; ignore=(:DataFrame,)) === nothing
@@ -329,9 +351,11 @@ function check_all_qualified_accesses_via_owners(mod::Module, file=pathof(mod);
                                                  # private undocumented kwarg for hoisting this analysis
                                                  file_analysis=Dict())
     check_file(file)
+    validate_ignore_submodules(mod; ignore)
     for (submodule, problematic) in
         improper_qualified_accesses(mod, file; skip, allow_internal_accesses,
                                     file_analysis)
+        is_ignored_submodule(submodule; ignore) && continue
         filter!(problematic) do nt
             return nt.name ∉ ignore
         end
@@ -387,8 +411,14 @@ For example:
 
 would allow accessing names which are public in PrettyTables from DataFrames.
 
-If `ignore` is supplied, it should be a tuple of `Symbol`s, representing names
-that are allowed to be accessed from modules in which they are not public. For example,
+Additionally, the keyword `ignore` can be passed to represent a tuple of items to ignore. These can be:
+
+* modules, which are submodules of `mod`. This ignores qualified accesses that occur within the ignored submodule tree.
+* symbols, representing names that are allowed to be accessed from modules in which they are not public in any submodule.
+
+Module and symbol ignores can be mixed in a single tuple.
+
+For example,
 
 ```julia
 @test check_all_qualified_accesses_are_public(MyPackage; ignore=(:DataFrame,)) === nothing
@@ -420,10 +450,12 @@ function check_all_qualified_accesses_are_public(mod::Module, file=pathof(mod);
                                                  # private undocumented kwarg for hoisting this analysis
                                                  file_analysis=Dict())
     check_file(file)
+    validate_ignore_submodules(mod; ignore)
     for (submodule, problematic) in
         # We pass `skip=()` since we will do our own filtering after
         improper_qualified_accesses(mod, file; skip=(), allow_internal_accesses,
                                     file_analysis)
+        is_ignored_submodule(submodule; ignore) && continue
         filter!(problematic) do nt
             return nt.name ∉ ignore
         end
@@ -481,8 +513,14 @@ This can be used in a package's tests, e.g.
 
 ## Allowing some self-qualified accesses
 
-If `ignore` is supplied, it should be a tuple of `Symbol`s, representing names
-that are allowed to be self-qualified. For example,
+The keyword `ignore` can be passed to represent a tuple of items to ignore. These can be:
+
+* modules, which are submodules of `mod`. This ignores self-qualified accesses that occur within the ignored submodule tree.
+* symbols, representing names that are allowed to be self-qualified in any submodule.
+
+Module and symbol ignores can be mixed in a single tuple.
+
+For example,
 
 ```julia
 @test check_no_self_qualified_accesses(MyPackage; ignore=(:foo,)) === nothing
@@ -501,8 +539,10 @@ function check_no_self_qualified_accesses(mod::Module, file=pathof(mod);
                                           # private undocumented kwarg for hoisting this analysis
                                           file_analysis=Dict())
     check_file(file)
+    validate_ignore_submodules(mod; ignore)
     for (submodule, problematic) in
         improper_qualified_accesses(mod, file; skip=(), file_analysis)
+        is_ignored_submodule(submodule; ignore) && continue
         filter!(problematic) do nt
             return nt.name ∉ ignore
         end
@@ -553,8 +593,14 @@ For example:
 
 would allow explicitly importing names which are owned by PrettyTables from DataFrames.
 
-If `ignore` is supplied, it should be a tuple of `Symbol`s, representing names
-that are allowed to be accessed from non-owner modules. For example,
+Additionally, the keyword `ignore` can be passed to represent a tuple of items to ignore. These can be:
+
+* modules, which are submodules of `mod`. This ignores non-owner explicit imports that occur within the ignored submodule tree.
+* symbols, representing names that are allowed to be imported from non-owner modules in any submodule.
+
+Module and symbol ignores can be mixed in a single tuple.
+
+For example,
 
 ```julia
 @test check_all_explicit_imports_via_owners(MyPackage; ignore=(:DataFrame,)) === nothing
@@ -581,6 +627,7 @@ function check_all_explicit_imports_via_owners(mod::Module, file=pathof(mod);
                                                # private undocumented kwarg for hoisting this analysis
                                                file_analysis=Dict())
     check_file(file)
+    validate_ignore_submodules(mod; ignore)
     # `strict=false` because unanalyzability doesn't compromise our analysis
     # that much, unlike in the stale case (in which we might miss usages of the
     # "stale" name, making it not-stale). Here we might just miss bad imports
@@ -591,6 +638,7 @@ function check_all_explicit_imports_via_owners(mod::Module, file=pathof(mod);
     for (submodule, problematic) in
         improper_explicit_imports(mod, file; strict=false, skip, allow_internal_imports,
                                   file_analysis)
+        is_ignored_submodule(submodule; ignore) && continue
         filter!(problematic) do nt
             return nt.name ∉ ignore
         end
@@ -646,8 +694,14 @@ For example:
 
 would allow explicitly importing names which are public in PrettyTables from DataFrames.
 
-If `ignore` is supplied, it should be a tuple of `Symbol`s, representing names
-that are allowed to be imported from modules in which they are not public. For example,
+Additionally, the keyword `ignore` can be passed to represent a tuple of items to ignore. These can be:
+
+* modules, which are submodules of `mod`. This ignores non-public explicit imports that occur within the ignored submodule tree.
+* symbols, representing names that are allowed to be imported from modules in which they are not public in any submodule.
+
+Module and symbol ignores can be mixed in a single tuple.
+
+For example,
 
 ```julia
 @test check_all_explicit_imports_are_public(MyPackage; ignore=(:DataFrame,)) === nothing
@@ -679,10 +733,12 @@ function check_all_explicit_imports_are_public(mod::Module, file=pathof(mod);
                                                # private undocumented kwarg for hoisting this analysis
                                                file_analysis=Dict())
     check_file(file)
+    validate_ignore_submodules(mod; ignore)
     for (submodule, problematic) in
         # We pass `skip=()` since we will do our own filtering after
         improper_explicit_imports(mod, file; strict=false, skip=(), allow_internal_imports,
                                   file_analysis)
+        is_ignored_submodule(submodule; ignore) && continue
         filter!(problematic) do nt
             return nt.name ∉ ignore
         end

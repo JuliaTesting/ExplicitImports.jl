@@ -78,6 +78,7 @@ include("public_compat.jl")
 include("Exporter.jl")
 include("TestModA.jl")
 include("test_mods.jl")
+include("ignore_modules.jl")
 include("DynMod.jl")
 include("TestModArgs.jl")
 include("examples.jl")
@@ -122,6 +123,8 @@ include("issue_140.jl")
     @testset "Macro explicit imports (#97)" begin
         include("issue_97_test.jl")
     end
+
+    include("ignore_modules_test.jl")
 
     @testset "module aliases (#106)" begin
         # https://github.com/JuliaTesting/ExplicitImports.jl/issues/106
@@ -201,6 +204,45 @@ include("issue_140.jl")
         @test no_self_qualified_accesses_individual_failures ==
               ["isempty(self_qualified_accesses)"]
 
+    end
+
+    @testset "test_explicit_imports ignore merge" begin
+        ignore_merge_failures = failing_expressions() do
+            test_explicit_imports(IgnoreImplicitImportsMixMod, "ignore_modules.jl";
+                                  no_stale_explicit_imports=false,
+                                  all_explicit_imports_via_owners=false,
+                                  all_explicit_imports_are_public=false,
+                                  all_qualified_accesses_via_owners=false,
+                                  all_qualified_accesses_are_public=false,
+                                  no_self_qualified_accesses=false,
+                                  ignore=(IgnoreImplicitImportsMixMod.Parent,))
+        end
+        @test ignore_merge_failures == ["isempty(missing_explicit_imports)"]
+
+        ignore_merge_failures2 = failing_expressions() do
+            test_explicit_imports(IgnoreImplicitImportsMixMod, "ignore_modules.jl";
+                                  no_stale_explicit_imports=false,
+                                  all_explicit_imports_via_owners=false,
+                                  all_explicit_imports_are_public=false,
+                                  all_qualified_accesses_via_owners=false,
+                                  all_qualified_accesses_are_public=false,
+                                  no_self_qualified_accesses=false,
+                                  no_implicit_imports=(; ignore=(:Exporter, :exported_b)))
+        end
+        @test ignore_merge_failures2 == ["isempty(missing_explicit_imports)"]
+
+        ignore_merge_success = failing_expressions() do
+            test_explicit_imports(IgnoreImplicitImportsMixMod, "ignore_modules.jl";
+                                  no_stale_explicit_imports=false,
+                                  all_explicit_imports_via_owners=false,
+                                  all_explicit_imports_are_public=false,
+                                  all_qualified_accesses_via_owners=false,
+                                  all_qualified_accesses_are_public=false,
+                                  no_self_qualified_accesses=false,
+                                  ignore=(IgnoreImplicitImportsMixMod.Parent,),
+                                  no_implicit_imports=(; ignore=(:Exporter, :exported_b)))
+        end
+        @test isempty(ignore_merge_success)
     end
 
     # https://github.com/JuliaTesting/ExplicitImports.jl/issues/137

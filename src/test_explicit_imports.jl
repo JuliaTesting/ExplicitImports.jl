@@ -7,6 +7,14 @@ function askwargs(flag::Bool)
     return NamedTuple()
 end
 
+function merge_ignore(kwargs::NamedTuple, ignore::Tuple)
+    isempty(ignore) && return kwargs
+    if haskey(kwargs, :ignore)
+        return merge(kwargs, (; ignore=(ignore..., kwargs.ignore...)))
+    end
+    return merge(kwargs, (; ignore))
+end
+
 """
     test_no_implicit_imports(package::Module, file=pathof(package); kwargs...)
 
@@ -157,6 +165,8 @@ The keyword argument `\$x` (e.g., `no_implicit_imports`) can be used to
 control whether or not to run `check_\$x` (e.g., `check_no_implicit_imports`).
 If `check_\$x` supports keyword arguments, a `NamedTuple` can also be
 passed to `\$x` to specify the keyword arguments for `check_\$x`.
+The keyword argument `ignore` provides a top-level ignore list that is merged
+into any per-check ignore list. This can be used to ignore a list of submodules in all checks.
 
 !!! note
     The function requires the stdlib Test to be loaded (e.g. `using Test`).
@@ -170,6 +180,7 @@ passed to `\$x` to specify the keyword arguments for `check_\$x`.
 - `all_qualified_accesses_via_owners=true`
 - `all_qualified_accesses_are_public=true`
 - `no_self_qualified_accesses=true`
+- `ignore=()`
 """
 function test_explicit_imports(package::Module, file=pathof(package);
                                 no_implicit_imports=true,
@@ -178,51 +189,59 @@ function test_explicit_imports(package::Module, file=pathof(package);
                                 all_explicit_imports_are_public=true,
                                 all_qualified_accesses_via_owners=true,
                                 all_qualified_accesses_are_public=true,
-                                no_self_qualified_accesses=true)
+                                no_self_qualified_accesses=true,
+                                ignore::Tuple=())
     check_file(file)
     file_analysis = Dict{String,FileAnalysis}()
 
     @testset "ExplicitImports" begin
         if no_implicit_imports !== false
+            kwargs = merge_ignore(askwargs(no_implicit_imports), ignore)
             test_no_implicit_imports(package, file;
                                      file_analysis,
-                                     askwargs(no_implicit_imports)...)
+                                     kwargs...)
         end
 
         if no_stale_explicit_imports !== false
+            kwargs = merge_ignore(askwargs(no_stale_explicit_imports), ignore)
             test_no_stale_explicit_imports(package, file;
                                            file_analysis,
-                                           askwargs(no_stale_explicit_imports)...)
+                                           kwargs...)
         end
 
         if all_explicit_imports_via_owners !== false
+            kwargs = merge_ignore(askwargs(all_explicit_imports_via_owners), ignore)
             test_all_explicit_imports_via_owners(package, file;
                                                  file_analysis,
-                                                 askwargs(all_explicit_imports_via_owners)...)
+                                                 kwargs...)
         end
 
         if all_explicit_imports_are_public !== false
+            kwargs = merge_ignore(askwargs(all_explicit_imports_are_public), ignore)
             test_all_explicit_imports_are_public(package, file;
                                                  file_analysis,
-                                                 askwargs(all_explicit_imports_are_public)...)
+                                                 kwargs...)
         end
 
         if all_qualified_accesses_via_owners !== false
+            kwargs = merge_ignore(askwargs(all_qualified_accesses_via_owners), ignore)
             test_all_qualified_accesses_via_owners(package, file;
                                                    file_analysis,
-                                                   askwargs(all_qualified_accesses_via_owners)...)
+                                                   kwargs...)
         end
 
         if all_qualified_accesses_are_public !== false
+            kwargs = merge_ignore(askwargs(all_qualified_accesses_are_public), ignore)
             test_all_qualified_accesses_are_public(package, file;
                                                    file_analysis,
-                                                   askwargs(all_qualified_accesses_are_public)...)
+                                                   kwargs...)
         end
 
         if no_self_qualified_accesses !== false
+            kwargs = merge_ignore(askwargs(no_self_qualified_accesses), ignore)
             test_no_self_qualified_accesses(package, file;
                                             file_analysis,
-                                            askwargs(no_self_qualified_accesses)...)
+                                            kwargs...)
         end
     end
 end
