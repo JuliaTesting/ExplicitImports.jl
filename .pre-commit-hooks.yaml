@@ -1,6 +1,9 @@
+---
 - id: explicit-imports
   name: ExplicitImports checks
+  description: "ExplicitImports.jl namespace checks"
+  language: julia
   entry: ./scripts/explicit-imports.jl --check
-  files: ^src.*\.jl$
-  language: script
+  types: [julia]
+  minimum_pre_commit_version: "4.2.0"
   pass_filenames: false
