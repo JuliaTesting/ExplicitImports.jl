@@ -251,10 +251,11 @@ See also [`print_explicit_imports`](@ref) to easily compute and print these resu
 """
 function improper_explicit_imports(mod::Module, file=pathof(mod); strict=true,
                                    skip=get_default_skip_pairs(),
-                                   allow_internal_imports=true)
+                                   allow_internal_imports=true,
+                                   # private undocumented kwarg for hoisting this analysis
+                                   file_analysis=Dict())
     check_file(file)
     submodules = find_submodules(mod, file)
-    file_analysis = Dict{String,FileAnalysis}()
     fill_cache!(file_analysis, last.(submodules))
     return [submodule => improper_explicit_imports_nonrecursive(submodule, path; strict,
                                                                 file_analysis=file_analysis[path],

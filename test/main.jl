@@ -7,6 +7,7 @@ if isdefined(Base, Symbol("@main")) && VERSION >= v"1.12.0-DEV.102"
                        r"\s+" => " ")
         @test contains(help, "SYNOPSIS")
         @test contains(help, "Path to the root directory")
+        @test contains(help, "--test")
         run1 = replace(readchomp(`$cmd --project=$(dir) -m ExplicitImports $dir`),
                        r"\s+" => " ")
         @test contains(run1, "is not relying on any implicit imports.")
@@ -30,6 +31,7 @@ end
                    r"\s+" => " ")
     @test contains(help, "SYNOPSIS")
     @test contains(help, "Path to the root directory")
+    @test contains(help, "--test")
     run1 = replace(readchomp(`$cmd --project=$(dir) -e "using ExplicitImports: main; exit(main([\"$(dir)\"]))"`),
                    r"\s+" => " ")
     @test contains(run1, "is not relying on any implicit imports.")
@@ -43,6 +45,26 @@ end
     str = replace(String(take!(io)), r"\s+" => " ")
     @test contains(str,
                    "is not a supported flag, directory, or file. See the output of `--help` for usage details")
+end
+
+@testset "Test --test flag" begin
+    mktempdir() do tmp
+        proj_path = joinpath(tmp, "Project.toml")
+        src_dir = joinpath(tmp, "src")
+        mkpath(src_dir)
+        write(proj_path,
+              "name = \"TmpPkg\"\n" *
+              "uuid = \"00000000-0000-0000-0000-000000000001\"\n" *
+              "version = \"0.1.0\"\n")
+        write(joinpath(src_dir, "TmpPkg.jl"),
+              "module TmpPkg\n\n" *
+              "greet() = \"hello\"\n\n" *
+              "end # module\n")
+        @test ExplicitImports.main([tmp, "--test"]) == 0
+        @test ExplicitImports.main([tmp, "--test", "--print"]) == 0
+        @test ExplicitImports.main([tmp, "--test", "--check"]) == 1
+        @test ExplicitImports.main([tmp, "--test", "--checklist", "all"]) == 1
+    end
 end
 
 @testset "Test checks" begin

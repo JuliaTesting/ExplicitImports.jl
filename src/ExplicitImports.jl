@@ -22,6 +22,7 @@ using TOML: TOML, parsefile
 using Markdown: Markdown
 using PrecompileTools: @setup_workload, @compile_workload
 using Pkg: Pkg
+using Test: Test, @test, @testset
 
 # we'll borrow their `@_public` macro; if this goes away, we can get our own
 JuliaSyntax.@_public ignore_submodules
@@ -40,6 +41,11 @@ export ImplicitImportsException, UnanalyzableModuleException,
        ExplicitImportsFromNonOwnerException, NonPublicExplicitImportsException,
        NonPublicQualifiedAccessException, SelfQualifiedAccessException
 export StaleImportsException, check_no_stale_explicit_imports
+
+export test_explicit_imports, test_no_implicit_imports, test_no_stale_explicit_imports,
+       test_all_explicit_imports_via_owners, test_all_explicit_imports_are_public,
+       test_all_qualified_accesses_via_owners, test_all_qualified_accesses_are_public,
+       test_no_self_qualified_accesses
 
 # deprecated
 export print_stale_explicit_imports, stale_explicit_imports,
@@ -67,6 +73,7 @@ include("improper_qualified_accesses.jl")
 include("improper_explicit_imports.jl")
 include("interactive_usage.jl")
 include("checks.jl")
+include("test_explicit_imports.jl")
 include("deprecated.jl")
 include("main.jl")
 

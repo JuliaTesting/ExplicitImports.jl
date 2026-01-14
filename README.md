@@ -33,6 +33,11 @@ To understand these examples, note that:
 - `map` is an API function of Base, which happens to be present in the LinearAlgebra namespace
 - `_svd!` is a private function of LinearAlgebra
 
+ExplicitImports also supplies Test.jl-style wrappers around each individual check, named with `test_*` instead of `check_*` (e.g. `test_no_implicit_imports`). The `test_*` functions can be all invoked together with the helper function `test_explicit_imports`. These differ from the `check_*` functions in two ways:
+
+- they use a testset and result in test failures instead of test errors
+- they always print the locations in the failure message for easier debugging
+
 ## Goals
 
 - Figure out what implicit imports a Julia module is relying on, in order to make them explicit.
@@ -265,6 +270,8 @@ OPTIONS
            Show this message
        --check
            Run checks instead of printing. If --checklist is not specified, all checks are run
+       --test
+           Run Test.jl-style checks instead of printing
        --checklist <check1,check2>,...
            Run checks specified by <check1>,<check2>,...
            This will imply --check.
