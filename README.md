@@ -69,7 +69,7 @@ Another use for ExplicitImports.jl is to get an understanding of a codebase when
 
 ## Why not
 
-- philosophical/pedagodical: Julia is a very composition-oriented language, meaning a lot of its power comes from combining functions and types from independent packages together. Focusing too much on _which_ package a function is defined in can obscure the fact that other packages can add useful methods to that function, which are just as first-class as the methods defined in the "owning" package.
+- philosophical/pedagogical: Julia is a very composition-oriented language, meaning a lot of its power comes from combining functions and types from independent packages together. Focusing too much on _which_ package a function is defined in can obscure the fact that other packages can add useful methods to that function, which are just as first-class as the methods defined in the "owning" package.
 - implementation: ExplicitImports is not fully accurate (see the "Limitations" below) and can make mistakes, because it re-implements parts of lowering in order to understand the scoping of functions. It also does not expand out macros which can introduce new names locally which shadow global variables, confusing its analysis.
 
 ## Example
