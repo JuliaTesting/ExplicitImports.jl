@@ -65,6 +65,13 @@ There are various takes on _how problematic_ this issue is, to what extent this 
 
 Personally, I don't think this is always a huge issue, and that it's basically fine for packages to use implicit imports if that is their preferred style and they understand the risk. But I do think this issue is somewhat a "hole" in the semver system as it applies to Julia packages, and I wanted to create some tooling to make it easier to mitigate the issue for package authors who would prefer to not rely on implicit imports.
 
+Another use for ExplicitImports.jl is to get an understanding of a codebase when you are new to it and its dependencies. Learning which packages names come from can help piece together a mental map of the ecosystem, and e.g. where to file issues or contribute features. ExplicitImports can also ease the transition if you are coming from Python where explicit imports are standard.
+
+## Why not
+
+- philosophical/pedagogical: Julia is a very composition-oriented language, meaning a lot of its power comes from combining functions and types from independent packages together. Focusing too much on _which_ package a function is defined in can obscure the fact that other packages can add useful methods to that function, which are just as first-class as the methods defined in the "owning" package.
+- implementation: ExplicitImports is not fully accurate (see the "Limitations" below) and can make mistakes, because it re-implements parts of lowering in order to understand the scoping of functions. It also does not expand out macros which can introduce new names locally which shadow global variables, confusing its analysis.
+
 ## Example
 
 ````julia
