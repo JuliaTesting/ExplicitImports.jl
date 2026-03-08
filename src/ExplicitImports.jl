@@ -8,7 +8,8 @@ const USE_BASE_JULIASYNTAX = VERSION >= BASE_JULIASYNTAX_VERSION
 # these as we don't want it to recurse into vendored dependencies.
 # We also add `Vendored` to `ignore_submodules` elsewhere.
 module Vendored
-if VERSION < v"1.12.0-DEV.0"
+using ..ExplicitImports: USE_BASE_JULIASYNTAX
+if !USE_BASE_JULIASYNTAX
     include(joinpath("vendored", "JuliaSyntax", "src", "JuliaSyntax.jl"))
 end
 include(joinpath("vendored", "AbstractTrees", "src", "AbstractTrees.jl"))
