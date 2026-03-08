@@ -1286,6 +1286,16 @@ include("issue_140.jl")
         end
     end
 
+    @testset "JuliaSyntax backend selection" begin
+        if VERSION >= ExplicitImports.BASE_JULIASYNTAX_VERSION
+            @test ExplicitImports.JuliaSyntax === Base.JuliaSyntax
+            @test !isdefined(ExplicitImports.Vendored, :JuliaSyntax)
+        else
+            @test isdefined(ExplicitImports.Vendored, :JuliaSyntax)
+            @test ExplicitImports.JuliaSyntax === ExplicitImports.Vendored.JuliaSyntax
+        end
+    end
+
     @testset "backtick modules and locations" begin
         @testset "print_explicit_imports" begin
             # Test that module names and file:line locations are surrounded by backticks

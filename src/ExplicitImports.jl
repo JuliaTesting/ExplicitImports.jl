@@ -1,20 +1,31 @@
 module ExplicitImports
 
+const BASE_JULIASYNTAX_VERSION = v"1.12.0-DEV.0"
+const USE_BASE_JULIASYNTAX = VERSION >= BASE_JULIASYNTAX_VERSION
+
 #! explicit-imports: off
 # We vendor some dependencies to avoid compatibility problems. We tell ExplicitImports to ignore
 # these as we don't want it to recurse into vendored dependencies.
 # We also add `Vendored` to `ignore_submodules` elsewhere.
 module Vendored
-include(joinpath("vendored", "JuliaSyntax", "src", "JuliaSyntax.jl"))
+using ..ExplicitImports: USE_BASE_JULIASYNTAX
+if !USE_BASE_JULIASYNTAX
+    include(joinpath("vendored", "JuliaSyntax", "src", "JuliaSyntax.jl"))
+end
 include(joinpath("vendored", "AbstractTrees", "src", "AbstractTrees.jl"))
 end
 #! explicit-imports: on
 
-using .Vendored.JuliaSyntax
+if USE_BASE_JULIASYNTAX
+    import Base: JuliaSyntax
+else
+    import .Vendored: JuliaSyntax
+end
+using .JuliaSyntax
 # suppress warning about Base.parse collision, even though parse is never used
 # this avoids a warning when loading the package while creating an unused explicit import
 # the former occurs for all users, the latter only for developers of this package
-using .Vendored.JuliaSyntax: parse
+using .JuliaSyntax: parse
 
 using .Vendored.AbstractTrees
 using .Vendored.AbstractTrees: parent
