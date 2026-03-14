@@ -769,6 +769,123 @@ function analyze_name(leaf; debug=false)
     end
 end
 
+function cmdstring_parent(leaf)
+    node = leaf
+    while true
+        kind(node) == K"cmdstring" && return node
+        has_parent(node) || return nothing
+        node = parent(node)
+    end
+end
+
+function unwrap_toplevel_expr(expr)
+    if expr isa Expr && expr.head == :toplevel && length(expr.args) == 1
+        return expr.args[1]
+    end
+    return expr
+end
+
+function cmdstring_string_literal(expr)
+    expr = unwrap_toplevel_expr(expr)
+    if expr isa Expr && expr.head == :macrocall
+        for arg in expr.args[2:end]
+            arg isa LineNumberNode && continue
+            if arg isa String
+                return arg
+            elseif arg isa Expr && arg.head == :string
+                all(x -> x isa String, arg.args) || return nothing
+                return join(arg.args)
+            end
+        end
+        return nothing
+    elseif expr isa String
+        return expr
+    end
+    return nothing
+end
+
+function collect_shell_interpolations!(exprs, part)
+    if part isa Expr && part.head == :tuple
+        for item in part.args
+            collect_shell_interpolations!(exprs, item)
+        end
+    elseif part isa AbstractString
+        return nothing
+    else
+        push!(exprs, part)
+    end
+    return nothing
+end
+
+# Parse the full cmd literal once so interpolation extraction follows Julia's grammar.
+function cmdstring_interpolations_from_source(cmd_src::AbstractString)
+    expr = Meta.parse(cmd_src; raise=false)
+    expr isa Expr && expr.head == :error && return Any[]
+    cmd_str = cmdstring_string_literal(expr)
+    cmd_str === nothing && return Any[]
+    parsed = try
+        Base.shell_parse(cmd_str; special=Base.shell_special)[1]
+    catch
+        return Any[]
+    end
+    exprs = Any[]
+    collect_shell_interpolations!(exprs, parsed)
+    return exprs
+end
+
+function append_cmdstring_interpolations!(per_usage_info, leaf, processed_cmdstrings)
+    cmd_node = cmdstring_parent(leaf)
+    cmd_node === nothing && return nothing
+    cmd_id = objectid(js_node(cmd_node))
+    if cmd_id in processed_cmdstrings
+        return nothing
+    end
+    push!(processed_cmdstrings, cmd_id)
+
+    cmd_src = String(JuliaSyntax.sourcetext(js_node(cmd_node)))
+    exprs = cmdstring_interpolations_from_source(cmd_src)
+    isempty(exprs) && return nothing
+
+    outer = analyze_name(leaf)
+    outer_scope_path = outer.scope_path
+    outer_module_path = outer.module_path
+    wrapper = nodevalue(leaf)
+    location = location_str(wrapper)
+
+    for expr in exprs
+        expr_src = sprint(Base.show_unquoted, expr)
+        parsed = JuliaSyntax.parseall(JuliaSyntax.SyntaxNode, expr_src; ignore_warnings=true)
+        expr_wrapper = SyntaxNodeWrapper(parsed, wrapper.file, wrapper.bad_locations)
+        cursor = TreeCursor(expr_wrapper)
+        for expr_leaf in Leaves(cursor)
+            if nodevalue(expr_leaf) isa SkippedFile
+                continue
+            end
+            (kind(expr_leaf) in (K"Identifier", K"MacroName", K"StringMacroName"))::Bool ||
+                continue
+            parents_match(expr_leaf, (K"quote",)) &&
+                !parents_match(expr_leaf, (K"quote", K".")) && continue
+
+            name = get_val(expr_leaf)
+            qualified_by = qualifying_module(expr_leaf)
+            import_type = analyze_import_type(expr_leaf)
+            explicitly_imported_by = import_type == :import_RHS ? get_import_lhs(expr_leaf) : nothing
+            inner = analyze_name(expr_leaf)
+            scope_path = vcat(inner.scope_path, outer_scope_path)
+            push!(per_usage_info,
+                  (; name,
+                     qualified_by,
+                     import_type,
+                     explicitly_imported_by,
+                     location,
+                     inner...,
+                     module_path=outer_module_path,
+                     scope_path))
+        end
+    end
+    return outer_module_path
+end
+
 """
     analyze_all_names(file)
 
@@ -813,12 +930,21 @@ function analyze_all_names(file)
     # safe to analyze.
     seen_modules = Set{Vector{Symbol}}()
     tainted_modules = Set{Vector{Symbol}}()
+    processed_cmdstrings = Set{UInt}()
 
     for leaf in Leaves(cursor)
         if nodevalue(leaf) isa SkippedFile
             # we start from the parent
             mod_path = analyze_name(parent(leaf)).module_path
             push!(tainted_modules, mod_path)
+            continue
+        end
+
+        if kind(leaf) == K"CmdString"
+            mod_path = append_cmdstring_interpolations!(per_usage_info,
+                                                        leaf,
+                                                        processed_cmdstrings)
+            mod_path === nothing || push!(seen_modules, mod_path)
             continue
         end
 
