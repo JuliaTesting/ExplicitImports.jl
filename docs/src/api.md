@@ -33,7 +33,7 @@ Additionally, one can use [`test_explicit_imports`](@ref) to run _all_ of the te
 test_explicit_imports
 ```
 
-Now let us go over each check in more detail. The first such check is [`check_no_implicit_imports`](@ref) which aims to ensure there are no implicit exports used in the package.
+Now let us go over each check in more detail. The first such check is [`check_no_implicit_imports`](@ref) which aims to ensure there are no implicit imports used in the package.
 
 ```@docs
 check_no_implicit_imports
