@@ -26,7 +26,7 @@ jobs:
         os:
           - ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       # Using `juliaup` over `setup-julia` so we can access beta versions easier
       - uses: julia-actions/install-juliaup@v3
         with:
@@ -46,7 +46,7 @@ jobs:
       pull-requests: read  # Required when using `push_preview=true`
       statuses: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: julia-actions/setup-julia@v2
         with:
           version: '1'
