@@ -295,4 +295,21 @@ end
         @test nrow(external_usages) == 2
         @test nrow(usages) == 2
     end
+
+    @testset "kwarg without semicolon at module scope" begin
+        @test check_no_stale_explicit_imports(TestModKwargWithoutSemicolon, TEST_FILE) === nothing
+        usages = get_usages(:getindex, [:TestModKwargWithoutSemicolon])
+        kwarg_usages = subset(usages, :analysis_code => ByRow(==(ExplicitImports.IgnoredKwargName)))
+        external_usages = subset(usages, :analysis_code => ByRow(==(ExplicitImports.External)))
+        @test nrow(kwarg_usages) == 2
+        @test nrow(external_usages) == 1
+    end
+
+    @testset "default values of positional arguments stay local" begin
+        @test_throws ExplicitImports.StaleImportsException check_no_stale_explicit_imports(TestModDefaultArgsStayLocal,
+                                                                                           TEST_FILE)
+        usages = get_usages(:getindex, [:TestModDefaultArgsStayLocal])
+        @test !any(row -> row.analysis_code in (ExplicitImports.External, ExplicitImports.IgnoredKwargName),
+                   eachrow(usages))
+    end
 end

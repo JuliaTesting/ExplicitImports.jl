@@ -266,3 +266,27 @@ function test2(f)
     f(; getindex)
 end
 end # TestModIssue98Shorthand
+
+# Keyword arguments in a call without a semicolon, e.g. `f(getindex = 1)`, are kwarg
+# names, not assignments; at module scope they must not shadow the import
+module TestModKwargWithoutSemicolon
+using Base: getindex
+
+f(; getindex = 0) = getindex
+const x = f(getindex = 1)
+const s = "$(f(getindex = 2))"
+
+g() = getindex([1, 2, 3], 1)
+end # TestModKwargWithoutSemicolon
+
+# Default values of positional arguments in function definitions still bind locals
+module TestModDefaultArgsStayLocal
+using Base: getindex
+
+h1(getindex = 1) = getindex
+h2(getindex = 1)::Int = getindex
+h3(getindex = 1) where {T} = getindex
+function h4(getindex = 1)
+    return getindex
+end
+end # TestModDefaultArgsStayLocal

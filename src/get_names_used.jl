@@ -319,6 +319,10 @@ function is_kwarg_name(leaf)
     if parents_match(leaf, (K"=", K"parameters", K"call"))
         call_node = get_parent(leaf, 3)
         return function_def_scope_owner(call_node) === nothing
+    elseif parents_match(leaf, (K"=", K"call"))
+        # keyword argument passed without a semicolon, e.g. `f(x = 1)`
+        call_node = get_parent(leaf, 2)
+        return child_index(get_parent(leaf)) > 1 && !is_function_signature(call_node)
     elseif parents_match(leaf, (K"=", K"parameters", K"tuple"))
         return true
     elseif parents_match(leaf, (K"=", K"tuple"))
@@ -687,6 +691,19 @@ function function_def_scope_owner(call_node)
         return nodevalue(parent_node).node
     end
     return nothing
+end
+
+# Check if `call_node` is the signature of a function definition, also when it is
+# wrapped in a return type annotation or `where` clause, e.g. `f(x = 1)::T where {T} = x`
+function is_function_signature(call_node)
+    function_def_scope_owner(call_node) === nothing || return true
+    node = call_node
+    while has_parent(node) && kind(parent(node)) in (K"::", K"where") && child_index(node) == 1
+        node = parent(node)
+    end
+    node === call_node && return false
+    has_parent(node) || return false
+    return kind(parent(node)) in (K"=", K"function", K"macro") && child_index(node) == 1
 end
 
 # Helper: check if `descendent` is a descendent of the first child of `ancestor`
